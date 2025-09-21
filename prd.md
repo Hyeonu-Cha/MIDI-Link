@@ -270,7 +270,7 @@ The core architecture remains layered, but the technology and communication betw
 
 ## 7. Implementation Roadmap
 
-### 7.1 Phase 1: MVP (3-4 months)
+### 7.1 Phase 1: MVP
 **Core Infrastructure:**
 - MIDI device detection and input handling
 - Basic action system (keyboard shortcuts, app launch)
@@ -283,7 +283,7 @@ The core architecture remains layered, but the technology and communication betw
 - Support for 2-3 popular MIDI controllers
 - Documentation and basic user guide
 
-### 7.2 Phase 2: Enhanced Features (2-3 months)
+### 7.2 Phase 2: Enhanced Features
 **Advanced Actions:**
 - Multi-step macros and delays
 - HTTP requests and web integration
@@ -296,7 +296,7 @@ The core architecture remains layered, but the technology and communication betw
 - Expanded controller support
 - Performance optimizations
 
-### 7.3 Phase 3: Ecosystem (2-3 months)
+### 7.3 Phase 3: Ecosystem
 **Plugin System:**
 - Plugin architecture and SDK
 - Community plugin marketplace
