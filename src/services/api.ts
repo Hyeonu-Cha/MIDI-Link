@@ -41,4 +41,8 @@ export const profileApi = {
   async deleteMapping(mappingId: string): Promise<void> {
     return await invoke('delete_mapping', { mappingId });
   },
+
+  async deleteProfile(profileId: string): Promise<void> {
+    return await invoke('delete_profile', { profileId });
+  },
 };

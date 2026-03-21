@@ -246,10 +246,25 @@ async fn delete_mapping(
     }
 }
 
+#[tauri::command]
+async fn delete_profile(
+    profile_manager: State<'_, ProfileManagerState>,
+    profile_id: String,
+) -> Result<(), String> {
+    let mut manager_guard = profile_manager.lock().map_err(|e| e.to_string())?;
+
+    if let Some(ref mut manager) = *manager_guard {
+        manager.delete_profile(&profile_id).map_err(|e| e.to_string())
+    } else {
+        Err("Profile manager not initialized".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(MidiHandlerState::new(Mutex::new(None)))
         .manage(ActionEngineState::new(Mutex::new(ActionEngine::new().unwrap())))
         .manage(ProfileManagerState::new(Mutex::new(None)))
@@ -282,7 +297,8 @@ pub fn run() {
             add_smart_switch_rule,
             export_profile,
             import_profile,
-            delete_mapping
+            delete_mapping,
+            delete_profile
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

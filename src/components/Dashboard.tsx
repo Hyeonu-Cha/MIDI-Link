@@ -8,6 +8,8 @@ import ActionEditor from './ActionEditor';
 
 const Dashboard: React.FC = () => {
   const [midiDevices, setMidiDevices] = useState<string[]>([]);
+  const [midiEnabled, setMidiEnabled] = useState(false);
+  const [leftPanelVisible, setLeftPanelVisible] = useState(true);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [appVersion] = useState('v0.1.0');
@@ -25,6 +27,7 @@ const Dashboard: React.FC = () => {
       // Initialize MIDI
       const devices = await midiApi.initializeMidi();
       setMidiDevices(devices);
+      setMidiEnabled(devices.length > 0);
 
       // Load profiles
       const profileList = await profileApi.getProfiles();
@@ -35,6 +38,7 @@ const Dashboard: React.FC = () => {
       setActiveProfile(active);
     } catch (error) {
       console.error('Failed to initialize app:', error);
+      setMidiEnabled(false);
     }
   };
 
@@ -75,6 +79,50 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleEnableMidi = async () => {
+    try {
+      console.log('Calling midiApi.initializeMidi()...');
+      const devices = await midiApi.initializeMidi();
+      console.log('MIDI devices found:', devices);
+      setMidiDevices(devices);
+      const newState = devices.length > 0;
+      console.log('Setting midiEnabled to:', newState);
+      setMidiEnabled(newState);
+    } catch (error) {
+      console.error('Failed to enable MIDI:', error);
+      setMidiEnabled(false);
+    }
+  };
+
+  const handleToggleMidi = async () => {
+    console.log('Toggle clicked, current state:', midiEnabled);
+    if (midiEnabled) {
+      // Disable MIDI
+      console.log('Disabling MIDI');
+      setMidiEnabled(false);
+      setMidiDevices([]);
+    } else {
+      // Enable MIDI
+      console.log('Enabling MIDI');
+      try {
+        await handleEnableMidi();
+        // Force enable for testing if no devices found
+        if (midiDevices.length === 0) {
+          console.log('No devices found, but enabling toggle anyway for testing');
+          setMidiEnabled(true);
+        }
+      } catch (error) {
+        console.error('Error in toggle:', error);
+        // For testing purposes, enable anyway
+        setMidiEnabled(true);
+      }
+    }
+  };
+
+  const toggleLeftPanel = () => {
+    setLeftPanelVisible(!leftPanelVisible);
+  };
+
   return (
     <div className="dashboard">
       <header className="dashboard-header">
@@ -90,43 +138,68 @@ const Dashboard: React.FC = () => {
       </header>
 
       <div className="dashboard-content">
-        <div className="left-panel">
-          <div className="section">
-            <h3>MIDI Devices</h3>
-            <div className="device-list">
-              {midiDevices.length > 0 ? (
-                midiDevices.map((device, index) => (
-                  <div key={index} className="device-item">
-                    <span className="status-indicator connected"></span>
-                    {device}
-                  </div>
-                ))
-              ) : (
-                <div className="no-devices">No MIDI devices detected</div>
-              )}
+        {leftPanelVisible && (
+          <div className="left-panel">
+            <div className="section">
+              <div className="section-header-with-toggle">
+                <h3>MIDI</h3>
+                <button
+                  className={`panel-toggle-btn left-panel-open`}
+                  onClick={toggleLeftPanel}
+                  title="Hide panel"
+                >
+                  {'<<'}
+                </button>
+              </div>
+              <div className="midi-toggle-container">
+                <div className="midi-toggle" onClick={handleToggleMidi}>
+                  <input
+                    type="checkbox"
+                    checked={midiEnabled}
+                    readOnly
+                    className="midi-toggle-input"
+                  />
+                  <span className={`midi-toggle-slider ${midiEnabled ? 'enabled' : 'disabled'}`}>
+                    <span className="midi-toggle-button"></span>
+                  </span>
+                  <span className="midi-toggle-label">
+                    {midiEnabled ? 'MIDI Enabled' : 'MIDI Disabled'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="section">
+              <h3>Profile</h3>
+              <ProfileSelector
+                profiles={profiles}
+                activeProfile={activeProfile}
+                onProfileChange={handleProfileChange}
+                onProfileDeleted={initializeApp}
+              />
+            </div>
+
+            <div className="section">
+              <h3>MIDI Monitor</h3>
+              <MidiMonitor
+                lastEvent={lastMidiEvent}
+                onMidiEvent={handleMidiEvent}
+              />
             </div>
           </div>
-
-          <div className="section">
-            <h3>Profile</h3>
-            <ProfileSelector
-              profiles={profiles}
-              activeProfile={activeProfile}
-              onProfileChange={handleProfileChange}
-            />
-          </div>
-
-          <div className="section">
-            <h3>MIDI Monitor</h3>
-            <MidiMonitor 
-              lastEvent={lastMidiEvent}
-              onMidiEvent={handleMidiEvent}
-            />
-          </div>
-        </div>
+        )}
 
         <div className="main-panel">
-          <div className="section">
+          <div className={`section ${!leftPanelVisible ? 'with-toggle' : ''}`} style={{ position: 'relative' }}>
+            {!leftPanelVisible && (
+              <button
+                className={`panel-toggle-btn left-panel-closed`}
+                onClick={toggleLeftPanel}
+                title="Show panel"
+              >
+                {'>>'}
+              </button>
+            )}
             <h3>Mappings</h3>
             <MappingGrid
               profile={activeProfile}

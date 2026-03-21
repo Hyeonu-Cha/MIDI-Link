@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 use enigo::{Enigo, Key, Button, Direction, Settings, Coordinate, Keyboard, Mouse};
+use log::{warn, error, info};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionMapping {
@@ -133,13 +134,19 @@ impl ActionEngine {
 
 
     fn execute_script(&mut self, script_type: &ScriptType, content: &str) -> Result<(), Box<dyn std::error::Error>> {
-        match script_type {
+        info!("Executing script: type={:?}, content length={}", script_type, content.len());
+
+        let result = match script_type {
             ScriptType::PowerShell => {
                 #[cfg(target_os = "windows")]
                 {
                     Command::new("powershell")
                         .args(&["-Command", content])
-                        .spawn()?;
+                        .spawn()
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    return Err("PowerShell is only available on Windows".into());
                 }
             }
             ScriptType::Bash => {
@@ -147,7 +154,11 @@ impl ActionEngine {
                 {
                     Command::new("bash")
                         .args(&["-c", content])
-                        .spawn()?;
+                        .spawn()
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    return Err("Bash is not available on Windows. Use PowerShell or Cmd instead.".into());
                 }
             }
             ScriptType::Cmd => {
@@ -155,11 +166,25 @@ impl ActionEngine {
                 {
                     Command::new("cmd")
                         .args(&["/c", content])
-                        .spawn()?;
+                        .spawn()
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    return Err("Command Prompt is only available on Windows".into());
                 }
             }
+        };
+
+        match result {
+            Ok(_) => {
+                info!("Successfully started script execution");
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to execute script: {}", e);
+                Err(format!("Failed to execute script: {}", e).into())
+            }
         }
-        Ok(())
     }
 
     fn execute_keyboard_shortcut(
@@ -167,32 +192,70 @@ impl ActionEngine {
         keys: &[String],
         modifiers: &[String],
     ) -> Result<(), Box<dyn std::error::Error>> {
+        info!("Executing keyboard shortcut: keys={:?}, modifiers={:?}", keys, modifiers);
+
         // Press modifiers
         for modifier in modifiers {
             match modifier.as_str() {
-                "ctrl" | "control" => { let _ = self.enigo.key(Key::Control, Direction::Press); },
-                "alt" => { let _ = self.enigo.key(Key::Alt, Direction::Press); },
-                "shift" => { let _ = self.enigo.key(Key::Shift, Direction::Press); },
-                "meta" | "super" | "cmd" => { let _ = self.enigo.key(Key::Meta, Direction::Press); },
-                _ => {}
+                "ctrl" | "control" => {
+                    if let Err(e) = self.enigo.key(Key::Control, Direction::Press) {
+                        warn!("Failed to press Control key: {}", e);
+                    }
+                },
+                "alt" => {
+                    if let Err(e) = self.enigo.key(Key::Alt, Direction::Press) {
+                        warn!("Failed to press Alt key: {}", e);
+                    }
+                },
+                "shift" => {
+                    if let Err(e) = self.enigo.key(Key::Shift, Direction::Press) {
+                        warn!("Failed to press Shift key: {}", e);
+                    }
+                },
+                "meta" | "super" | "cmd" => {
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta key: {}", e);
+                    }
+                },
+                _ => warn!("Unknown modifier: {}", modifier),
             }
         }
 
         // Press keys
         for key in keys {
             if let Some(enigo_key) = string_to_key(key) {
-                let _ = self.enigo.key(enigo_key, Direction::Click);
+                if let Err(e) = self.enigo.key(enigo_key, Direction::Click) {
+                    warn!("Failed to press key '{}': {}", key, e);
+                }
+            } else {
+                warn!("Unknown key: {}", key);
             }
         }
 
         // Release modifiers
         for modifier in modifiers {
             match modifier.as_str() {
-                "ctrl" | "control" => { let _ = self.enigo.key(Key::Control, Direction::Release); },
-                "alt" => { let _ = self.enigo.key(Key::Alt, Direction::Release); },
-                "shift" => { let _ = self.enigo.key(Key::Shift, Direction::Release); },
-                "meta" | "super" | "cmd" => { let _ = self.enigo.key(Key::Meta, Direction::Release); },
-                _ => {}
+                "ctrl" | "control" => {
+                    if let Err(e) = self.enigo.key(Key::Control, Direction::Release) {
+                        warn!("Failed to release Control key: {}", e);
+                    }
+                },
+                "alt" => {
+                    if let Err(e) = self.enigo.key(Key::Alt, Direction::Release) {
+                        warn!("Failed to release Alt key: {}", e);
+                    }
+                },
+                "shift" => {
+                    if let Err(e) = self.enigo.key(Key::Shift, Direction::Release) {
+                        warn!("Failed to release Shift key: {}", e);
+                    }
+                },
+                "meta" | "super" | "cmd" => {
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta key: {}", e);
+                    }
+                },
+                _ => {},
             }
         }
 
@@ -204,31 +267,58 @@ impl ActionEngine {
         path: &str,
         args: &[String],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        Command::new(path).args(args).spawn()?;
-        Ok(())
+        info!("Launching application: {} with args: {:?}", path, args);
+        match Command::new(path).args(args).spawn() {
+            Ok(_) => {
+                info!("Successfully launched application: {}", path);
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to launch application '{}': {}", path, e);
+                Err(format!("Failed to launch application '{}': {}", path, e).into())
+            }
+        }
     }
 
     fn execute_open_url(&mut self, url: &str) -> Result<(), Box<dyn std::error::Error>> {
-        #[cfg(target_os = "windows")]
-        {
-            Command::new("cmd").args(&["/c", "start", url]).spawn()?;
-        }
+        info!("Opening URL: {}", url);
 
-        #[cfg(target_os = "macos")]
-        {
-            Command::new("open").arg(url).spawn()?;
-        }
+        let result = {
+            #[cfg(target_os = "windows")]
+            {
+                Command::new("cmd").args(&["/c", "start", url]).spawn()
+            }
 
-        #[cfg(target_os = "linux")]
-        {
-            Command::new("xdg-open").arg(url).spawn()?;
-        }
+            #[cfg(target_os = "macos")]
+            {
+                Command::new("open").arg(url).spawn()
+            }
 
-        Ok(())
+            #[cfg(target_os = "linux")]
+            {
+                Command::new("xdg-open").arg(url).spawn()
+            }
+        };
+
+        match result {
+            Ok(_) => {
+                info!("Successfully opened URL: {}", url);
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to open URL '{}': {}", url, e);
+                Err(format!("Failed to open URL '{}': {}", url, e).into())
+            }
+        }
     }
 
     fn execute_type_text(&mut self, text: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let _ = self.enigo.text(text);
+        info!("Typing text: '{}'", text);
+        if let Err(e) = self.enigo.text(text) {
+            warn!("Failed to type text '{}': {}", text, e);
+        } else {
+            info!("Successfully typed text");
+        }
         Ok(())
     }
 
@@ -238,13 +328,23 @@ impl ActionEngine {
         x: i32,
         y: i32,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let _ = self.enigo.move_mouse(x, y, Coordinate::Abs);
+        info!("Executing mouse click: button={}, x={}, y={}", button, x, y);
 
-        match button {
-            "left" => { let _ = self.enigo.button(Button::Left, Direction::Click); },
-            "right" => { let _ = self.enigo.button(Button::Right, Direction::Click); },
-            "middle" => { let _ = self.enigo.button(Button::Middle, Direction::Click); },
+        if let Err(e) = self.enigo.move_mouse(x, y, Coordinate::Abs) {
+            warn!("Failed to move mouse to ({}, {}): {}", x, y, e);
+        }
+
+        let click_result = match button {
+            "left" => self.enigo.button(Button::Left, Direction::Click),
+            "right" => self.enigo.button(Button::Right, Direction::Click),
+            "middle" => self.enigo.button(Button::Middle, Direction::Click),
             _ => return Err("Invalid mouse button".into()),
+        };
+
+        if let Err(e) = click_result {
+            warn!("Failed to click {} mouse button: {}", button, e);
+        } else {
+            info!("Successfully clicked {} mouse button at ({}, {})", button, x, y);
         }
 
         Ok(())
@@ -254,211 +354,399 @@ impl ActionEngine {
         &mut self,
         command_type: &SystemCommandType,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        info!("Executing system command: {:?}", command_type);
+
         match command_type {
             SystemCommandType::VolumeUp => {
-                let _ = self.enigo.key(Key::VolumeUp, Direction::Click);
+                if let Err(e) = self.enigo.key(Key::VolumeUp, Direction::Click) {
+                    warn!("Failed to execute VolumeUp: {}", e);
+                } else {
+                    info!("Successfully executed VolumeUp");
+                }
             }
             SystemCommandType::VolumeDown => {
-                let _ = self.enigo.key(Key::VolumeDown, Direction::Click);
+                if let Err(e) = self.enigo.key(Key::VolumeDown, Direction::Click) {
+                    warn!("Failed to execute VolumeDown: {}", e);
+                } else {
+                    info!("Successfully executed VolumeDown");
+                }
             }
             SystemCommandType::Mute => {
-                let _ = self.enigo.key(Key::VolumeMute, Direction::Click);
+                if let Err(e) = self.enigo.key(Key::VolumeMute, Direction::Click) {
+                    warn!("Failed to execute Mute: {}", e);
+                } else {
+                    info!("Successfully executed Mute");
+                }
             }
             SystemCommandType::PlayPause => {
-                let _ = self.enigo.key(Key::MediaPlayPause, Direction::Click);
+                if let Err(e) = self.enigo.key(Key::MediaPlayPause, Direction::Click) {
+                    warn!("Failed to execute PlayPause: {}", e);
+                } else {
+                    info!("Successfully executed PlayPause");
+                }
             }
             SystemCommandType::NextTrack => {
-                let _ = self.enigo.key(Key::MediaNextTrack, Direction::Click);
+                if let Err(e) = self.enigo.key(Key::MediaNextTrack, Direction::Click) {
+                    warn!("Failed to execute NextTrack: {}", e);
+                } else {
+                    info!("Successfully executed NextTrack");
+                }
             }
             SystemCommandType::PreviousTrack => {
-                let _ = self.enigo.key(Key::MediaPrevTrack, Direction::Click);
+                if let Err(e) = self.enigo.key(Key::MediaPrevTrack, Direction::Click) {
+                    warn!("Failed to execute PreviousTrack: {}", e);
+                } else {
+                    info!("Successfully executed PreviousTrack");
+                }
             }
             SystemCommandType::BrightnessUp => {
                 // Platform-specific brightness control
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = self.enigo.key(Key::Alt, Direction::Press);
-                    let _ = self.enigo.key(Key::F15, Direction::Click);
-                    let _ = self.enigo.key(Key::Alt, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Alt, Direction::Press) {
+                        warn!("Failed to press Alt for BrightnessUp: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::F15, Direction::Click) {
+                        warn!("Failed to press F15 for BrightnessUp: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Alt, Direction::Release) {
+                        warn!("Failed to release Alt for BrightnessUp: {}", e);
+                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = self.enigo.key(Key::F2, Direction::Click);
+                    if let Err(e) = self.enigo.key(Key::F2, Direction::Click) {
+                        warn!("Failed to execute BrightnessUp: {}", e);
+                    }
                 }
+                info!("Executed BrightnessUp command");
             }
             SystemCommandType::BrightnessDown => {
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = self.enigo.key(Key::Alt, Direction::Press);
-                    let _ = self.enigo.key(Key::F14, Direction::Click);
-                    let _ = self.enigo.key(Key::Alt, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Alt, Direction::Press) {
+                        warn!("Failed to press Alt for BrightnessDown: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::F14, Direction::Click) {
+                        warn!("Failed to press F14 for BrightnessDown: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Alt, Direction::Release) {
+                        warn!("Failed to release Alt for BrightnessDown: {}", e);
+                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = self.enigo.key(Key::F1, Direction::Click);
+                    if let Err(e) = self.enigo.key(Key::F1, Direction::Click) {
+                        warn!("Failed to execute BrightnessDown: {}", e);
+                    }
                 }
+                info!("Executed BrightnessDown command");
             }
             SystemCommandType::Sleep => {
-                #[cfg(target_os = "windows")]
-                {
-                    Command::new("rundll32.exe")
-                        .args(&["powrprof.dll,SetSuspendState", "0,1,0"])
-                        .spawn()?;
+                info!("Attempting to put system to sleep");
+                let result = {
+                    #[cfg(target_os = "windows")]
+                    {
+                        Command::new("rundll32.exe")
+                            .args(&["powrprof.dll,SetSuspendState", "0,1,0"])
+                            .spawn()
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        Command::new("pmset").args(&["sleepnow"]).spawn()
+                    }
+                    #[cfg(target_os = "linux")]
+                    {
+                        Command::new("systemctl").args(&["suspend"]).spawn()
+                    }
+                };
+
+                if let Err(e) = result {
+                    error!("Failed to put system to sleep: {}", e);
+                    return Err(format!("Failed to put system to sleep: {}", e).into());
                 }
-                #[cfg(target_os = "macos")]
-                {
-                    Command::new("pmset").args(&["sleepnow"]).spawn()?;
-                }
-                #[cfg(target_os = "linux")]
-                {
-                    Command::new("systemctl").args(&["suspend"]).spawn()?;
-                }
+                info!("Successfully initiated system sleep");
             }
             SystemCommandType::Lock => {
-                #[cfg(target_os = "windows")]
-                {
-                    Command::new("rundll32.exe")
-                        .args(&["user32.dll,LockWorkStation"])
-                        .spawn()?;
+                info!("Attempting to lock system");
+                let result = {
+                    #[cfg(target_os = "windows")]
+                    {
+                        Command::new("rundll32.exe")
+                            .args(&["user32.dll,LockWorkStation"])
+                            .spawn()
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        Command::new("pmset").args(&["displaysleepnow"]).spawn()
+                    }
+                    #[cfg(target_os = "linux")]
+                    {
+                        Command::new("xdg-screensaver").args(&["lock"]).spawn()
+                    }
+                };
+
+                if let Err(e) = result {
+                    error!("Failed to lock system: {}", e);
+                    return Err(format!("Failed to lock system: {}", e).into());
                 }
-                #[cfg(target_os = "macos")]
-                {
-                    Command::new("pmset").args(&["displaysleepnow"]).spawn()?;
-                }
-                #[cfg(target_os = "linux")]
-                {
-                    Command::new("xdg-screensaver").args(&["lock"]).spawn()?;
-                }
+                info!("Successfully initiated system lock");
             }
             SystemCommandType::Shutdown => {
-                #[cfg(target_os = "windows")]
-                {
-                    Command::new("shutdown").args(&["/s", "/t", "0"]).spawn()?;
+                error!("CRITICAL: System shutdown requested via MIDI trigger");
+                let result = {
+                    #[cfg(target_os = "windows")]
+                    {
+                        Command::new("shutdown").args(&["/s", "/t", "0"]).spawn()
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        Command::new("sudo").args(&["shutdown", "-h", "now"]).spawn()
+                    }
+                    #[cfg(target_os = "linux")]
+                    {
+                        Command::new("systemctl").args(&["poweroff"]).spawn()
+                    }
+                };
+
+                if let Err(e) = result {
+                    error!("CRITICAL: Failed to shutdown system: {}", e);
+                    return Err(format!("CRITICAL: Failed to shutdown system: {}", e).into());
                 }
-                #[cfg(target_os = "macos")]
-                {
-                    Command::new("sudo").args(&["shutdown", "-h", "now"]).spawn()?;
-                }
-                #[cfg(target_os = "linux")]
-                {
-                    Command::new("systemctl").args(&["poweroff"]).spawn()?;
-                }
+                error!("CRITICAL: System shutdown initiated successfully");
             }
             SystemCommandType::Restart => {
-                #[cfg(target_os = "windows")]
-                {
-                    Command::new("shutdown").args(&["/r", "/t", "0"]).spawn()?;
+                error!("CRITICAL: System restart requested via MIDI trigger");
+                let result = {
+                    #[cfg(target_os = "windows")]
+                    {
+                        Command::new("shutdown").args(&["/r", "/t", "0"]).spawn()
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        Command::new("sudo").args(&["shutdown", "-r", "now"]).spawn()
+                    }
+                    #[cfg(target_os = "linux")]
+                    {
+                        Command::new("systemctl").args(&["reboot"]).spawn()
+                    }
+                };
+
+                if let Err(e) = result {
+                    error!("CRITICAL: Failed to restart system: {}", e);
+                    return Err(format!("CRITICAL: Failed to restart system: {}", e).into());
                 }
-                #[cfg(target_os = "macos")]
-                {
-                    Command::new("sudo").args(&["shutdown", "-r", "now"]).spawn()?;
-                }
-                #[cfg(target_os = "linux")]
-                {
-                    Command::new("systemctl").args(&["reboot"]).spawn()?;
-                }
+                error!("CRITICAL: System restart initiated successfully");
             }
             SystemCommandType::MinimizeWindow => {
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::DownArrow, Direction::Click);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for MinimizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::DownArrow, Direction::Click) {
+                        warn!("Failed to press DownArrow for MinimizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for MinimizeWindow: {}", e);
+                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::Unicode('m'), Direction::Click);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for MinimizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Unicode('m'), Direction::Click) {
+                        warn!("Failed to press 'm' for MinimizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for MinimizeWindow: {}", e);
+                    }
                 }
+                info!("Executed MinimizeWindow command");
             }
             SystemCommandType::MaximizeWindow => {
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::UpArrow, Direction::Click);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for MaximizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::UpArrow, Direction::Click) {
+                        warn!("Failed to press UpArrow for MaximizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for MaximizeWindow: {}", e);
+                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = self.enigo.key(Key::Control, Direction::Press);
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::Unicode('f'), Direction::Click);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
-                    let _ = self.enigo.key(Key::Control, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Control, Direction::Press) {
+                        warn!("Failed to press Control for MaximizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for MaximizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Unicode('f'), Direction::Click) {
+                        warn!("Failed to press 'f' for MaximizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for MaximizeWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Control, Direction::Release) {
+                        warn!("Failed to release Control for MaximizeWindow: {}", e);
+                    }
                 }
+                info!("Executed MaximizeWindow command");
             }
             SystemCommandType::CloseWindow => {
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = self.enigo.key(Key::Alt, Direction::Press);
-                    let _ = self.enigo.key(Key::F4, Direction::Click);
-                    let _ = self.enigo.key(Key::Alt, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Alt, Direction::Press) {
+                        warn!("Failed to press Alt for CloseWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::F4, Direction::Click) {
+                        warn!("Failed to press F4 for CloseWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Alt, Direction::Release) {
+                        warn!("Failed to release Alt for CloseWindow: {}", e);
+                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::Unicode('w'), Direction::Click);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for CloseWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Unicode('w'), Direction::Click) {
+                        warn!("Failed to press 'w' for CloseWindow: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for CloseWindow: {}", e);
+                    }
                 }
+                info!("Executed CloseWindow command");
             }
             SystemCommandType::SwitchDesktop => {
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::Control, Direction::Press);
-                    let _ = self.enigo.key(Key::RightArrow, Direction::Click);
-                    let _ = self.enigo.key(Key::Control, Direction::Release);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for SwitchDesktop: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Control, Direction::Press) {
+                        warn!("Failed to press Control for SwitchDesktop: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::RightArrow, Direction::Click) {
+                        warn!("Failed to press RightArrow for SwitchDesktop: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Control, Direction::Release) {
+                        warn!("Failed to release Control for SwitchDesktop: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for SwitchDesktop: {}", e);
+                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = self.enigo.key(Key::Control, Direction::Press);
-                    let _ = self.enigo.key(Key::RightArrow, Direction::Click);
-                    let _ = self.enigo.key(Key::Control, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Control, Direction::Press) {
+                        warn!("Failed to press Control for SwitchDesktop: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::RightArrow, Direction::Click) {
+                        warn!("Failed to press RightArrow for SwitchDesktop: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Control, Direction::Release) {
+                        warn!("Failed to release Control for SwitchDesktop: {}", e);
+                    }
                 }
+                info!("Executed SwitchDesktop command");
             }
             SystemCommandType::TaskView => {
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::Tab, Direction::Click);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for TaskView: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Tab, Direction::Click) {
+                        warn!("Failed to press Tab for TaskView: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for TaskView: {}", e);
+                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::Tab, Direction::Click);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for TaskView: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Tab, Direction::Click) {
+                        warn!("Failed to press Tab for TaskView: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for TaskView: {}", e);
+                    }
                 }
+                info!("Executed TaskView command");
             }
             SystemCommandType::Screenshot => {
                 #[cfg(target_os = "windows")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::Shift, Direction::Press);
-                    let _ = self.enigo.key(Key::Unicode('s'), Direction::Click);
-                    let _ = self.enigo.key(Key::Shift, Direction::Release);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for Screenshot: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Shift, Direction::Press) {
+                        warn!("Failed to press Shift for Screenshot: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Unicode('s'), Direction::Click) {
+                        warn!("Failed to press 's' for Screenshot: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Shift, Direction::Release) {
+                        warn!("Failed to release Shift for Screenshot: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for Screenshot: {}", e);
+                    }
                 }
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = self.enigo.key(Key::Meta, Direction::Press);
-                    let _ = self.enigo.key(Key::Shift, Direction::Press);
-                    let _ = self.enigo.key(Key::Unicode('4'), Direction::Click);
-                    let _ = self.enigo.key(Key::Shift, Direction::Release);
-                    let _ = self.enigo.key(Key::Meta, Direction::Release);
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Press) {
+                        warn!("Failed to press Meta for Screenshot: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Shift, Direction::Press) {
+                        warn!("Failed to press Shift for Screenshot: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Unicode('4'), Direction::Click) {
+                        warn!("Failed to press '4' for Screenshot: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Shift, Direction::Release) {
+                        warn!("Failed to release Shift for Screenshot: {}", e);
+                    }
+                    if let Err(e) = self.enigo.key(Key::Meta, Direction::Release) {
+                        warn!("Failed to release Meta for Screenshot: {}", e);
+                    }
                 }
+                info!("Executed Screenshot command");
             }
             SystemCommandType::ClipboardCopy => {
-                let _ = self.enigo.key(Key::Control, Direction::Press);
-                let _ = self.enigo.key(Key::Unicode('c'), Direction::Click);
-                let _ = self.enigo.key(Key::Control, Direction::Release);
+                if let Err(e) = self.enigo.key(Key::Control, Direction::Press) {
+                    warn!("Failed to press Control for ClipboardCopy: {}", e);
+                }
+                if let Err(e) = self.enigo.key(Key::Unicode('c'), Direction::Click) {
+                    warn!("Failed to press 'c' for ClipboardCopy: {}", e);
+                }
+                if let Err(e) = self.enigo.key(Key::Control, Direction::Release) {
+                    warn!("Failed to release Control for ClipboardCopy: {}", e);
+                }
+                info!("Executed ClipboardCopy command");
             }
             SystemCommandType::ClipboardPaste => {
-                let _ = self.enigo.key(Key::Control, Direction::Press);
-                let _ = self.enigo.key(Key::Unicode('v'), Direction::Click);
-                let _ = self.enigo.key(Key::Control, Direction::Release);
+                if let Err(e) = self.enigo.key(Key::Control, Direction::Press) {
+                    warn!("Failed to press Control for ClipboardPaste: {}", e);
+                }
+                if let Err(e) = self.enigo.key(Key::Unicode('v'), Direction::Click) {
+                    warn!("Failed to press 'v' for ClipboardPaste: {}", e);
+                }
+                if let Err(e) = self.enigo.key(Key::Control, Direction::Release) {
+                    warn!("Failed to release Control for ClipboardPaste: {}", e);
+                }
+                info!("Executed ClipboardPaste command");
             }
         }
         Ok(())

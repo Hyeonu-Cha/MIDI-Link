@@ -17,6 +17,8 @@ const MappingGrid: React.FC<MappingGridProps> = ({
   const [showMidiSelector, setShowMidiSelector] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState(1);
   const [selectedMidiValue, setSelectedMidiValue] = useState(60);
+  const [midiError, setMidiError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState<ActionMapping | null>(null);
   const renderActionSummary = (mapping: ActionMapping): string => {
     const action = mapping.action;
     
@@ -94,9 +96,7 @@ const MappingGrid: React.FC<MappingGridProps> = ({
             className="delete-btn"
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`Delete mapping "${mapping.name}"?`)) {
-                onDeleteMapping?.(mapping.id);
-              }
+              setConfirmDelete(mapping);
             }}
             title="Delete mapping"
           >
@@ -111,15 +111,21 @@ const MappingGrid: React.FC<MappingGridProps> = ({
   );
 
   const handleManualMapping = () => {
-    onCreateMapping(selectedChannel - 1, selectedMidiValue); // Convert to 0-based channel
+    const key = getMappingKey(selectedChannel - 1, selectedMidiValue);
+    if (profile && profile.mappings[key]) {
+      setMidiError(`Channel ${selectedChannel}, Value ${selectedMidiValue} is already used by "${profile.mappings[key].name}". Choose a different note or channel.`);
+      return;
+    }
+    onCreateMapping(selectedChannel - 1, selectedMidiValue);
     setShowMidiSelector(false);
+    setMidiError('');
   };
 
   const renderEmptySlot = (index: number) => (
     <div
       key={`empty-${index}`}
       className="mapping-slot empty"
-      onClick={() => setShowMidiSelector(true)}
+      onClick={() => { setShowMidiSelector(true); setMidiError(''); }}
     >
       <div className="empty-content">
         <div className="plus-icon">+</div>
@@ -173,6 +179,36 @@ const MappingGrid: React.FC<MappingGridProps> = ({
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <div className="create-profile-modal">
+          <div className="modal-overlay" onClick={() => setConfirmDelete(null)} />
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Delete Mapping</h3>
+              <button className="close-btn" onClick={() => setConfirmDelete(null)}>×</button>
+            </div>
+            <p style={{ marginBottom: '1rem', color: '#e5e5e5' }}>
+              Are you sure you want to delete <strong>"{confirmDelete.name}"</strong>? This cannot be undone.
+            </p>
+            <div className="form-actions">
+              <button
+                className="delete-btn"
+                onClick={() => {
+                  onDeleteMapping?.(confirmDelete.id);
+                  setConfirmDelete(null);
+                }}
+              >
+                Delete
+              </button>
+              <button className="cancel-btn" onClick={() => setConfirmDelete(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MIDI Value Selector Modal */}
       {showMidiSelector && (
         <div className="create-profile-modal">
@@ -195,7 +231,8 @@ const MappingGrid: React.FC<MappingGridProps> = ({
                 min="1"
                 max="16"
                 value={selectedChannel}
-                onChange={(e) => setSelectedChannel(Number(e.target.value))}
+                onChange={(e) => { setSelectedChannel(Number(e.target.value)); setMidiError(''); }}
+                className={midiError ? 'error' : ''}
               />
             </div>
 
@@ -206,33 +243,35 @@ const MappingGrid: React.FC<MappingGridProps> = ({
                 min="0"
                 max="127"
                 value={selectedMidiValue}
-                onChange={(e) => setSelectedMidiValue(Number(e.target.value))}
+                onChange={(e) => { setSelectedMidiValue(Number(e.target.value)); setMidiError(''); }}
+                className={midiError ? 'error' : ''}
               />
               <input
                 type="range"
                 min="0"
                 max="127"
                 value={selectedMidiValue}
-                onChange={(e) => setSelectedMidiValue(Number(e.target.value))}
+                onChange={(e) => { setSelectedMidiValue(Number(e.target.value)); setMidiError(''); }}
                 style={{ marginTop: '8px', width: '100%' }}
               />
-              <div style={{ fontSize: '14px', color: '#666', marginTop: '4px' }}>
+              <div style={{ fontSize: '14px', color: '#9ca3af', marginTop: '4px' }}>
                 Channel {selectedChannel}, Value {selectedMidiValue}
               </div>
+              {midiError && <div className="error-message" style={{ marginTop: '8px' }}>{midiError}</div>}
             </div>
 
             <div className="modal-actions">
+              <button
+                className="create-btn"
+                onClick={handleManualMapping}
+              >
+                Create
+              </button>
               <button
                 className="cancel-btn"
                 onClick={() => setShowMidiSelector(false)}
               >
                 Cancel
-              </button>
-              <button
-                className="create-btn"
-                onClick={handleManualMapping}
-              >
-                Create Mapping
               </button>
             </div>
           </div>

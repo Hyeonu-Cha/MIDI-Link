@@ -6,16 +6,19 @@ interface ProfileSelectorProps {
   profiles: Profile[];
   activeProfile: Profile | null;
   onProfileChange: (profileId: string) => void;
+  onProfileDeleted?: () => void;
 }
 
 const ProfileSelector: React.FC<ProfileSelectorProps> = ({
   profiles,
   activeProfile,
   onProfileChange,
+  onProfileDeleted,
 }) => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileDescription, setNewProfileDescription] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +36,19 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
       // Note: Parent component should refresh profiles list
     } catch (error) {
       console.error('Failed to create profile:', error);
+    }
+  };
+
+  const handleDeleteProfile = async () => {
+    if (!activeProfile) return;
+
+    try {
+      await profileApi.deleteProfile(activeProfile.id);
+      setShowDeleteConfirm(false);
+      onProfileDeleted?.();
+    } catch (error) {
+      console.error('Failed to delete profile:', error);
+      alert('Failed to delete profile: ' + error);
     }
   };
 
@@ -62,7 +78,16 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
 
       {activeProfile && (
         <div className="profile-info">
-          <div className="profile-name">{activeProfile.name}</div>
+          <div className="profile-header">
+            <div className="profile-name">{activeProfile.name}</div>
+            <button
+              className="delete-profile-btn"
+              onClick={() => setShowDeleteConfirm(true)}
+              title="Delete profile"
+            >
+              ×
+            </button>
+          </div>
           {activeProfile.description && (
             <div className="profile-description">{activeProfile.description}</div>
           )}
@@ -113,6 +138,33 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="create-profile-modal">
+          <div className="modal-overlay" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="modal-content">
+            <h3>Delete Profile</h3>
+            <p>Are you sure you want to delete the profile "{activeProfile?.name}"?</p>
+            <p>This action cannot be undone and will delete all {Object.keys(activeProfile?.mappings || {}).length} mappings.</p>
+            <div className="form-actions">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="cancel-btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteProfile}
+                className="delete-btn"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Profile, Action, ActionMapping, SystemCommandType, MacroStep, ScriptType } from '../types';
 import { profileApi } from '../services/api';
+import { open } from '@tauri-apps/plugin-dialog';
 
 interface ActionEditorProps {
   mappingKey: string | null;
@@ -39,6 +40,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
   const [mouseButton, setMouseButton] = useState('left');
   const [mouseX, setMouseX] = useState(0);
   const [mouseY, setMouseY] = useState(0);
+  const [isSelectingPoint, setIsSelectingPoint] = useState(false);
   
   // System Command fields
   const [systemCommand, setSystemCommand] = useState<SystemCommandType>(SystemCommandType.VolumeUp);
@@ -139,8 +141,51 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
       setIsMultiAction(false);
       setScriptType(ScriptType.PowerShell);
       setScriptContent('');
+      setIsSelectingPoint(false);
     }
   }, [editingMapping]);
+
+  const handleStartPointSelection = () => {
+    setIsSelectingPoint(true);
+    // Minimize the modal temporarily
+    document.body.style.pointerEvents = 'none';
+
+    // Create overlay for point selection
+    const overlay = document.createElement('div');
+    overlay.id = 'point-selection-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(255, 0, 0, 0.1);
+      cursor: crosshair;
+      z-index: 9999;
+      pointer-events: auto;
+    `;
+
+    const handleClick = (e: MouseEvent) => {
+      setMouseX(e.clientX);
+      setMouseY(e.clientY);
+      setIsSelectingPoint(false);
+      document.body.removeChild(overlay);
+      document.body.style.pointerEvents = 'auto';
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsSelectingPoint(false);
+        document.body.removeChild(overlay);
+        document.body.style.pointerEvents = 'auto';
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+
+    overlay.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleEscape);
+    document.body.appendChild(overlay);
+  };
 
   const handleModifierToggle = (modifier: string) => {
     setModifiers(prev => 
@@ -381,18 +426,42 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
           <div className="action-fields">
             <div className="form-group">
               <label>Application Path:</label>
-              <input
-                type="text"
-                value={appPath}
-                onChange={(e) => {
-                  setAppPath(e.target.value);
-                  if (errors.appPath) {
-                    setErrors(prev => ({ ...prev, appPath: '' }));
-                  }
-                }}
-                placeholder="/path/to/application.exe"
-                className={errors.appPath ? 'error' : ''}
-              />
+              <div className="input-with-icon">
+                <input
+                  type="text"
+                  value={appPath}
+                  onChange={(e) => {
+                    setAppPath(e.target.value);
+                    if (errors.appPath) {
+                      setErrors(prev => ({ ...prev, appPath: '' }));
+                    }
+                  }}
+                  placeholder="C:\Program Files\App\app.exe"
+                  className={errors.appPath ? 'error' : ''}
+                />
+                <button
+                  type="button"
+                  className="input-icon-btn"
+                  title="Browse for application"
+                  onClick={async () => {
+                    const selected = await open({
+                      multiple: false,
+                      filters: [
+                        { name: 'Applications', extensions: ['exe', 'bat', 'cmd', 'msi'] },
+                        { name: 'All Files', extensions: ['*'] },
+                      ],
+                    });
+                    if (selected) {
+                      setAppPath(selected as string);
+                      if (errors.appPath) setErrors(prev => ({ ...prev, appPath: '' }));
+                    }
+                  }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </button>
+              </div>
               {errors.appPath && <div className="error-message">{errors.appPath}</div>}
             </div>
             <div className="form-group">
@@ -462,6 +531,22 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                 <option value="middle">Middle</option>
               </select>
             </div>
+            <div className="form-group">
+              <label>Click Position:</label>
+              <div className="position-selection">
+                <button
+                  type="button"
+                  onClick={handleStartPointSelection}
+                  className="select-point-btn"
+                  disabled={isSelectingPoint}
+                >
+                  {isSelectingPoint ? 'Click anywhere on screen...' : 'Select Point on Screen'}
+                </button>
+                <div className="help-text">
+                  Click the button above, then click anywhere on your screen to set the coordinates. Press Escape to cancel.
+                </div>
+              </div>
+            </div>
             <div className="form-row">
               <div className="form-group">
                 <label>X Position:</label>
@@ -493,6 +578,9 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
               </div>
             </div>
             {errors.mousePosition && <div className="error-message">{errors.mousePosition}</div>}
+            <div className="help-text">
+              Current position: ({mouseX}, {mouseY})
+            </div>
           </div>
         );
 
@@ -597,6 +685,7 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
+          <div className="modal-body">
           <div className="form-group">
             <label>Mapping Name:</label>
             <input
@@ -966,13 +1055,14 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
               {errors.general}
             </div>
           )}
+          </div>
 
           <div className="modal-actions">
+            <button type="submit" className="save-btn">
+              Save
+            </button>
             <button type="button" onClick={onClose} className="cancel-btn">
               Cancel
-            </button>
-            <button type="submit" className="save-btn">
-              Save Mapping
             </button>
           </div>
         </form>
