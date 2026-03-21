@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ActionMapping, SystemCommandType, ScriptType, MacroStep } from '../types';
 
-interface ActionFormState {
+export interface ActionFormState {
   actionType: string;
   mappingName: string;
   // Keyboard Shortcut fields

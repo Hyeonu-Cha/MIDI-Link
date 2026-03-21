@@ -36,22 +36,21 @@ const ApplicationLaunchEditor: React.FC<ApplicationLaunchEditorProps> = ({
     <div className="action-fields">
       <div className="form-group">
         <label>Application Path:</label>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="input-with-icon">
           <input
             type="text"
             value={appPath}
             onChange={(e) => {
               onAppPathChange(e.target.value);
-              if (errors.appPath) {
-                onErrorClear('appPath');
-              }
+              if (errors.appPath) onErrorClear('appPath');
             }}
             placeholder="C:\Program Files\App\app.exe"
             className={errors.appPath ? 'error' : ''}
-            style={{ flex: 1 }}
           />
-          <button type="button" onClick={handleBrowse} className="browse-btn">
-            Browse...
+          <button type="button" onClick={handleBrowse} className="input-icon-btn" title="Browse for application">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
           </button>
         </div>
         {errors.appPath && <div className="error-message">{errors.appPath}</div>}
