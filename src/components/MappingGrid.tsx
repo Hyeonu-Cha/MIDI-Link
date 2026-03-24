@@ -188,7 +188,7 @@ const MappingGrid: React.FC<MappingGridProps> = ({
               <h3>Delete Mapping</h3>
               <button className="close-btn" onClick={() => setConfirmDelete(null)}>×</button>
             </div>
-            <p style={{ marginBottom: '1rem', color: '#e5e5e5' }}>
+            <p className="confirm-text">
               Are you sure you want to delete <strong>"{confirmDelete.name}"</strong>? This cannot be undone.
             </p>
             <div className="form-actions">
@@ -252,12 +252,12 @@ const MappingGrid: React.FC<MappingGridProps> = ({
                 max="127"
                 value={selectedMidiValue}
                 onChange={(e) => { setSelectedMidiValue(Number(e.target.value)); setMidiError(''); }}
-                style={{ marginTop: '8px', width: '100%' }}
+                className="midi-slider"
               />
-              <div style={{ fontSize: '14px', color: '#9ca3af', marginTop: '4px' }}>
+              <div className="midi-value-preview">
                 Channel {selectedChannel}, Value {selectedMidiValue}
               </div>
-              {midiError && <div className="error-message" style={{ marginTop: '8px' }}>{midiError}</div>}
+              {midiError && <div className="error-message">{midiError}</div>}
             </div>
 
             <div className="modal-actions">

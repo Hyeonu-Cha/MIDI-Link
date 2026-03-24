@@ -19,6 +19,7 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileDescription, setNewProfileDescription] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +34,7 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
       setNewProfileName('');
       setNewProfileDescription('');
       setShowCreateForm(false);
-      // Note: Parent component should refresh profiles list
+      onProfileDeleted?.(); // Refresh profiles list in parent
     } catch (error) {
       console.error('Failed to create profile:', error);
     }
@@ -45,10 +46,11 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
     try {
       await profileApi.deleteProfile(activeProfile.id);
       setShowDeleteConfirm(false);
+      setDeleteError('');
       onProfileDeleted?.();
     } catch (error) {
       console.error('Failed to delete profile:', error);
-      alert('Failed to delete profile: ' + error);
+      setDeleteError('Failed to delete profile: ' + error);
     }
   };
 
@@ -126,15 +128,15 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
                 />
               </div>
               <div className="form-actions">
+                <button type="submit" className="create-btn">
+                  Create
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}
                   className="cancel-btn"
                 >
                   Cancel
-                </button>
-                <button type="submit" className="create-btn">
-                  Create
                 </button>
               </div>
             </form>
@@ -149,20 +151,21 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
             <h3>Delete Profile</h3>
             <p>Are you sure you want to delete the profile "{activeProfile?.name}"?</p>
             <p>This action cannot be undone and will delete all {Object.keys(activeProfile?.mappings || {}).length} mappings.</p>
+            {deleteError && <div className="error-message">{deleteError}</div>}
             <div className="form-actions">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="cancel-btn"
-              >
-                Cancel
-              </button>
               <button
                 type="button"
                 onClick={handleDeleteProfile}
                 className="delete-btn"
               >
                 Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowDeleteConfirm(false); setDeleteError(''); }}
+                className="cancel-btn"
+              >
+                Cancel
               </button>
             </div>
           </div>

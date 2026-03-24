@@ -76,11 +76,3 @@ export interface Profile {
   created_at: string;
   updated_at: string;
 }
-
-export interface AppState {
-  midiDevices: string[];
-  activeProfile?: Profile;
-  profiles: Profile[];
-  isLearningMode: boolean;
-  lastMidiEvent?: MidiEvent;
-}

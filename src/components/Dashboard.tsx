@@ -1,32 +1,46 @@
-import React, { useEffect, useState } from 'react';
-import { Profile, MidiEvent } from '../types';
+import { FC, useEffect, useState } from 'react';
+import { Profile, MidiEvent, ActionMapping } from '../types';
 import { midiApi, profileApi } from '../services/api';
+import { listen } from '@tauri-apps/api/event';
+import { getVersion } from '@tauri-apps/api/app';
 import MidiMonitor from './MidiMonitor';
 import ProfileSelector from './ProfileSelector';
 import MappingGrid from './MappingGrid';
 import ActionEditor from './ActionEditor';
 
-const Dashboard: React.FC = () => {
-  const [midiDevices, setMidiDevices] = useState<string[]>([]);
+const Dashboard: FC = () => {
   const [midiEnabled, setMidiEnabled] = useState(false);
   const [leftPanelVisible, setLeftPanelVisible] = useState(true);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [appVersion] = useState('v0.1.0');
+  const [appVersion, setAppVersion] = useState('');
   const [lastMidiEvent, setLastMidiEvent] = useState<MidiEvent | null>(null);
   const [showActionEditor, setShowActionEditor] = useState(false);
   const [selectedMapping, setSelectedMapping] = useState<string | null>(null);
-  const [editingMapping, setEditingMapping] = useState<any>(null);
+  const [editingMapping, setEditingMapping] = useState<ActionMapping | null>(null);
 
   useEffect(() => {
     initializeApp();
   }, []);
 
+  // Listen for MIDI events from the Rust backend
+  useEffect(() => {
+    const unlisten = listen<MidiEvent>('midi-event', (event) => {
+      setLastMidiEvent(event.payload);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
   const initializeApp = async () => {
     try {
+      // Load app version
+      const version = await getVersion();
+      setAppVersion(`v${version}`);
+
       // Initialize MIDI
       const devices = await midiApi.initializeMidi();
-      setMidiDevices(devices);
       setMidiEnabled(devices.length > 0);
 
       // Load profiles
@@ -57,11 +71,7 @@ const Dashboard: React.FC = () => {
     setShowActionEditor(true);
   };
 
-  const handleMidiEvent = (event: MidiEvent) => {
-    setLastMidiEvent(event);
-  };
-
-  const handleEditMapping = (mapping: any) => {
+  const handleEditMapping = (mapping: ActionMapping) => {
     setEditingMapping(mapping);
     setSelectedMapping(`${mapping.midi_channel}:${mapping.midi_note_or_cc}`);
     setShowActionEditor(true);
@@ -79,42 +89,16 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleEnableMidi = async () => {
-    try {
-      console.log('Calling midiApi.initializeMidi()...');
-      const devices = await midiApi.initializeMidi();
-      console.log('MIDI devices found:', devices);
-      setMidiDevices(devices);
-      const newState = devices.length > 0;
-      console.log('Setting midiEnabled to:', newState);
-      setMidiEnabled(newState);
-    } catch (error) {
-      console.error('Failed to enable MIDI:', error);
-      setMidiEnabled(false);
-    }
-  };
-
   const handleToggleMidi = async () => {
-    console.log('Toggle clicked, current state:', midiEnabled);
     if (midiEnabled) {
-      // Disable MIDI
-      console.log('Disabling MIDI');
       setMidiEnabled(false);
-      setMidiDevices([]);
     } else {
-      // Enable MIDI
-      console.log('Enabling MIDI');
       try {
-        await handleEnableMidi();
-        // Force enable for testing if no devices found
-        if (midiDevices.length === 0) {
-          console.log('No devices found, but enabling toggle anyway for testing');
-          setMidiEnabled(true);
-        }
+        const devices = await midiApi.initializeMidi();
+        setMidiEnabled(devices.length > 0);
       } catch (error) {
-        console.error('Error in toggle:', error);
-        // For testing purposes, enable anyway
-        setMidiEnabled(true);
+        console.error('Failed to enable MIDI:', error);
+        setMidiEnabled(false);
       }
     }
   };
@@ -183,14 +167,13 @@ const Dashboard: React.FC = () => {
               <h3>MIDI Monitor</h3>
               <MidiMonitor
                 lastEvent={lastMidiEvent}
-                onMidiEvent={handleMidiEvent}
               />
             </div>
           </div>
         )}
 
         <div className="main-panel">
-          <div className={`section ${!leftPanelVisible ? 'with-toggle' : ''}`} style={{ position: 'relative' }}>
+          <div className={`section ${!leftPanelVisible ? 'with-toggle' : ''} main-section`}>
             {!leftPanelVisible && (
               <button
                 className={`panel-toggle-btn left-panel-closed`}

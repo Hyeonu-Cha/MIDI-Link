@@ -1248,3 +1248,24 @@ textarea[style*="monospace"] {
 ::-webkit-scrollbar-thumb:hover {
   background: #525252;
 }
+
+/* Utility classes */
+.main-section {
+  position: relative;
+}
+
+.confirm-text {
+  margin-bottom: 1rem;
+  color: #e5e5e5;
+}
+
+.midi-slider {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.midi-value-preview {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-top: 4px;
+}

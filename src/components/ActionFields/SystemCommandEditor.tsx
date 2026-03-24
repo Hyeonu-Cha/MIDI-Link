@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import { SystemCommandType } from '../../types';
 
 interface SystemCommandEditorProps {
@@ -6,7 +6,7 @@ interface SystemCommandEditorProps {
   onSystemCommandChange: (command: SystemCommandType) => void;
 }
 
-const SystemCommandEditor: React.FC<SystemCommandEditorProps> = ({
+const SystemCommandEditor: FC<SystemCommandEditorProps> = ({
   systemCommand,
   onSystemCommandChange,
 }) => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import { Profile, Action, ActionMapping, SystemCommandType, MacroStep } from '../types';
 import { profileApi } from '../services/api';
 import { useActionForm } from '../hooks/useActionForm';
@@ -13,7 +13,7 @@ interface ActionEditorProps {
   onSave: () => void;
 }
 
-const ActionEditor: React.FC<ActionEditorProps> = ({
+const ActionEditor: FC<ActionEditorProps> = ({
   mappingKey,
   profile,
   editingMapping,
@@ -84,8 +84,19 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
     };
 
     try {
-      if (editingMapping) await profileApi.deleteMapping(editingMapping.id);
-      await profileApi.addMappingToProfile(mapping);
+      if (editingMapping) {
+        await profileApi.deleteMapping(editingMapping.id);
+        try {
+          await profileApi.addMappingToProfile(mapping);
+        } catch {
+          // Rollback: re-add the original mapping
+          await profileApi.addMappingToProfile(editingMapping);
+          setErrors({ general: 'Failed to save mapping. Original mapping restored.' });
+          return;
+        }
+      } else {
+        await profileApi.addMappingToProfile(mapping);
+      }
       onSave();
     } catch {
       setErrors({ general: 'Failed to save mapping. Please try again.' });
@@ -269,11 +280,34 @@ const ActionEditor: React.FC<ActionEditorProps> = ({
                                 value={actionData.command_type}
                                 onChange={(e) => updateStep(index, { ...step, action: { SystemCommand: { command_type: e.target.value as SystemCommandType } } })}
                               >
-                                <option value={SystemCommandType.VolumeUp}>Volume Up</option>
-                                <option value={SystemCommandType.VolumeDown}>Volume Down</option>
-                                <option value={SystemCommandType.Mute}>Mute</option>
-                                <option value={SystemCommandType.PlayPause}>Play/Pause</option>
-                                <option value={SystemCommandType.Screenshot}>Screenshot</option>
+                                <optgroup label="Media Controls">
+                                  <option value={SystemCommandType.VolumeUp}>Volume Up</option>
+                                  <option value={SystemCommandType.VolumeDown}>Volume Down</option>
+                                  <option value={SystemCommandType.Mute}>Mute</option>
+                                  <option value={SystemCommandType.PlayPause}>Play/Pause</option>
+                                  <option value={SystemCommandType.NextTrack}>Next Track</option>
+                                  <option value={SystemCommandType.PreviousTrack}>Previous Track</option>
+                                </optgroup>
+                                <optgroup label="System Controls">
+                                  <option value={SystemCommandType.BrightnessUp}>Brightness Up</option>
+                                  <option value={SystemCommandType.BrightnessDown}>Brightness Down</option>
+                                  <option value={SystemCommandType.Sleep}>Sleep</option>
+                                  <option value={SystemCommandType.Lock}>Lock Screen</option>
+                                  <option value={SystemCommandType.Shutdown}>Shutdown</option>
+                                  <option value={SystemCommandType.Restart}>Restart</option>
+                                </optgroup>
+                                <optgroup label="Window Controls">
+                                  <option value={SystemCommandType.MinimizeWindow}>Minimize Window</option>
+                                  <option value={SystemCommandType.MaximizeWindow}>Maximize Window</option>
+                                  <option value={SystemCommandType.CloseWindow}>Close Window</option>
+                                  <option value={SystemCommandType.SwitchDesktop}>Switch Desktop</option>
+                                  <option value={SystemCommandType.TaskView}>Task View</option>
+                                </optgroup>
+                                <optgroup label="Utilities">
+                                  <option value={SystemCommandType.Screenshot}>Screenshot</option>
+                                  <option value={SystemCommandType.ClipboardCopy}>Copy</option>
+                                  <option value={SystemCommandType.ClipboardPaste}>Paste</option>
+                                </optgroup>
                               </select>
                             </div>
                           )}

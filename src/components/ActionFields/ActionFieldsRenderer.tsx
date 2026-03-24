@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import { SystemCommandType, ScriptType } from '../../types';
 import KeyboardShortcutEditor from './KeyboardShortcutEditor';
 import ApplicationLaunchEditor from './ApplicationLaunchEditor';
@@ -31,7 +31,7 @@ interface ActionFieldsRendererProps {
   onErrorClear: (field: string) => void;
 }
 
-const ActionFieldsRenderer: React.FC<ActionFieldsRendererProps> = ({
+const ActionFieldsRenderer: FC<ActionFieldsRendererProps> = ({
   actionType,
   formData,
   errors,

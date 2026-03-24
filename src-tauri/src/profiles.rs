@@ -334,3 +334,216 @@ impl ProfileManager {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actions::{Action, ActionMapping};
+
+    // -- Profile tests --
+
+    #[test]
+    fn profile_new_generates_unique_ids() {
+        let p1 = Profile::new("Profile 1".to_string(), None);
+        let p2 = Profile::new("Profile 2".to_string(), None);
+        assert_ne!(p1.id, p2.id);
+    }
+
+    #[test]
+    fn profile_new_sets_fields() {
+        let p = Profile::new("Test".to_string(), Some("A description".to_string()));
+        assert_eq!(p.name, "Test");
+        assert_eq!(p.description, Some("A description".to_string()));
+        assert!(p.mappings.is_empty());
+        assert!(p.smart_switch_rules.is_empty());
+        assert!(p.created_at <= p.updated_at);
+    }
+
+    #[test]
+    fn profile_new_without_description() {
+        let p = Profile::new("Minimal".to_string(), None);
+        assert_eq!(p.description, None);
+    }
+
+    #[test]
+    fn profile_add_mapping() {
+        let mut p = Profile::new("Test".to_string(), None);
+        let mapping = ActionMapping {
+            id: "m-1".to_string(),
+            name: "Volume Up".to_string(),
+            midi_channel: 0,
+            midi_note_or_cc: 60,
+            action: Action::TypeText { text: "test".to_string() },
+        };
+        let created = p.created_at;
+        p.add_mapping(mapping);
+
+        assert_eq!(p.mappings.len(), 1);
+        assert!(p.mappings.contains_key("0:60"));
+        assert!(p.updated_at >= created);
+    }
+
+    #[test]
+    fn profile_add_mapping_overwrites_same_key() {
+        let mut p = Profile::new("Test".to_string(), None);
+        let m1 = ActionMapping {
+            id: "m-1".to_string(),
+            name: "First".to_string(),
+            midi_channel: 0,
+            midi_note_or_cc: 60,
+            action: Action::TypeText { text: "first".to_string() },
+        };
+        let m2 = ActionMapping {
+            id: "m-2".to_string(),
+            name: "Second".to_string(),
+            midi_channel: 0,
+            midi_note_or_cc: 60,
+            action: Action::TypeText { text: "second".to_string() },
+        };
+        p.add_mapping(m1);
+        p.add_mapping(m2);
+
+        assert_eq!(p.mappings.len(), 1);
+        assert_eq!(p.mappings["0:60"].name, "Second");
+    }
+
+    #[test]
+    fn profile_remove_mapping() {
+        let mut p = Profile::new("Test".to_string(), None);
+        p.add_mapping(ActionMapping {
+            id: "m-1".to_string(),
+            name: "Test".to_string(),
+            midi_channel: 1,
+            midi_note_or_cc: 42,
+            action: Action::TypeText { text: "x".to_string() },
+        });
+        assert_eq!(p.mappings.len(), 1);
+
+        p.remove_mapping(1, 42);
+        assert!(p.mappings.is_empty());
+    }
+
+    #[test]
+    fn profile_remove_mapping_nonexistent_is_safe() {
+        let mut p = Profile::new("Test".to_string(), None);
+        p.remove_mapping(5, 99); // should not panic
+        assert!(p.mappings.is_empty());
+    }
+
+    #[test]
+    fn profile_remove_mapping_by_id() {
+        let mut p = Profile::new("Test".to_string(), None);
+        p.add_mapping(ActionMapping {
+            id: "keep-me".to_string(),
+            name: "Keep".to_string(),
+            midi_channel: 0,
+            midi_note_or_cc: 60,
+            action: Action::TypeText { text: "a".to_string() },
+        });
+        p.add_mapping(ActionMapping {
+            id: "delete-me".to_string(),
+            name: "Delete".to_string(),
+            midi_channel: 0,
+            midi_note_or_cc: 61,
+            action: Action::TypeText { text: "b".to_string() },
+        });
+        assert_eq!(p.mappings.len(), 2);
+
+        p.remove_mapping_by_id("delete-me");
+        assert_eq!(p.mappings.len(), 1);
+        assert!(p.mappings.values().all(|m| m.id == "keep-me"));
+    }
+
+    #[test]
+    fn profile_get_mapping() {
+        let mut p = Profile::new("Test".to_string(), None);
+        p.add_mapping(ActionMapping {
+            id: "m-1".to_string(),
+            name: "Test".to_string(),
+            midi_channel: 2,
+            midi_note_or_cc: 80,
+            action: Action::TypeText { text: "found".to_string() },
+        });
+
+        let found = p.get_mapping(2, 80);
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().name, "Test");
+
+        assert!(p.get_mapping(0, 0).is_none());
+    }
+
+    // -- Profile serialization --
+
+    #[test]
+    fn profile_json_roundtrip() {
+        let mut p = Profile::new("Roundtrip".to_string(), Some("desc".to_string()));
+        p.add_mapping(ActionMapping {
+            id: "m-1".to_string(),
+            name: "Map".to_string(),
+            midi_channel: 0,
+            midi_note_or_cc: 60,
+            action: Action::OpenUrl { url: "https://test.com".to_string() },
+        });
+        p.smart_switch_rules.push(SmartSwitchRule {
+            app_name: "chrome".to_string(),
+            window_title_contains: Some("Gmail".to_string()),
+            executable_path_contains: None,
+            priority: 10,
+        });
+
+        let json = serde_json::to_string_pretty(&p).unwrap();
+        let deserialized: Profile = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.id, p.id);
+        assert_eq!(deserialized.name, "Roundtrip");
+        assert_eq!(deserialized.description, Some("desc".to_string()));
+        assert_eq!(deserialized.mappings.len(), 1);
+        assert_eq!(deserialized.smart_switch_rules.len(), 1);
+        assert_eq!(deserialized.smart_switch_rules[0].app_name, "chrome");
+        assert_eq!(deserialized.smart_switch_rules[0].priority, 10);
+    }
+
+    // -- AppDetector normalize --
+
+    #[test]
+    fn normalize_app_name() {
+        use crate::app_detector::AppDetector;
+        let detector = AppDetector::new();
+
+        assert_eq!(detector.normalize_app_name("Chrome.exe"), "chrome");
+        assert_eq!(detector.normalize_app_name("Visual Studio"), "visualstudio");
+        assert_eq!(detector.normalize_app_name("  Notepad  "), "notepad");
+    }
+
+    // -- SmartSwitchRule serialization --
+
+    #[test]
+    fn smart_switch_rule_roundtrip() {
+        let rule = SmartSwitchRule {
+            app_name: "obs".to_string(),
+            window_title_contains: Some("Scene".to_string()),
+            executable_path_contains: Some("C:\\obs".to_string()),
+            priority: 5,
+        };
+        let json = serde_json::to_string(&rule).unwrap();
+        let deserialized: SmartSwitchRule = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.app_name, "obs");
+        assert_eq!(deserialized.window_title_contains, Some("Scene".to_string()));
+        assert_eq!(deserialized.executable_path_contains, Some("C:\\obs".to_string()));
+        assert_eq!(deserialized.priority, 5);
+    }
+
+    #[test]
+    fn smart_switch_rule_optional_fields() {
+        let rule = SmartSwitchRule {
+            app_name: "vscode".to_string(),
+            window_title_contains: None,
+            executable_path_contains: None,
+            priority: 1,
+        };
+        let json = serde_json::to_string(&rule).unwrap();
+        let deserialized: SmartSwitchRule = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.window_title_contains, None);
+        assert_eq!(deserialized.executable_path_contains, None);
+    }
+}

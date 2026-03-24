@@ -26,12 +26,14 @@ const KeyboardShortcutEditor: React.FC<KeyboardShortcutEditorProps> = ({
       ? modifiers.filter(m => m !== modifier)
       : [...modifiers, modifier];
     onModifiersChange(newModifiers);
+    if (errors.keys) onErrorClear('keys');
   };
 
   const handleAddKey = () => {
     if (keyInput && !keys.includes(keyInput.toLowerCase())) {
       onKeysChange([...keys, keyInput.toLowerCase()]);
       onKeyInputChange('');
+      if (errors.keys) onErrorClear('keys');
     }
   };
 

@@ -4,11 +4,12 @@ mod profiles;
 mod app_detector;
 
 use std::sync::{Arc, Mutex};
-use tauri::{Manager, State};
+use tauri::{Manager, State, Emitter};
 use midi::MidiHandler;
 use actions::{ActionEngine, ActionMapping, Action};
 use profiles::{ProfileManager, Profile, SmartSwitchRule};
 use app_detector::ActiveApp;
+use log::error;
 
 type MidiHandlerState = Arc<Mutex<Option<MidiHandler>>>;
 type ActionEngineState = Arc<Mutex<ActionEngine>>;
@@ -16,15 +17,32 @@ type ProfileManagerState = Arc<Mutex<Option<ProfileManager>>>;
 
 #[tauri::command]
 async fn initialize_midi(
+    app_handle: tauri::AppHandle,
     midi_handler: State<'_, MidiHandlerState>,
 ) -> Result<Vec<String>, String> {
     let mut handler_guard = midi_handler.lock().map_err(|e| e.to_string())?;
-    
+
     match MidiHandler::new() {
         Ok(mut handler) => {
             let devices = handler.scan_devices().map_err(|e| e.to_string())?;
+            let event_receiver = handler.get_event_receiver();
             handler.start_listening().map_err(|e| e.to_string())?;
             *handler_guard = Some(handler);
+
+            // Spawn a thread to forward MIDI events to the frontend
+            std::thread::spawn(move || {
+                if let Ok(mut guard) = event_receiver.lock() {
+                    if let Some(receiver) = guard.take() {
+                        drop(guard);
+                        while let Ok(event) = receiver.recv() {
+                            if let Err(e) = app_handle.emit("midi-event", &event) {
+                                error!("Failed to emit MIDI event: {}", e);
+                            }
+                        }
+                    }
+                }
+            });
+
             Ok(devices)
         }
         Err(e) => Err(e.to_string()),
@@ -49,8 +67,13 @@ async fn execute_action(
     action_engine: State<'_, ActionEngineState>,
     action: Action,
 ) -> Result<(), String> {
-    let mut engine = action_engine.lock().map_err(|e| e.to_string())?;
-    engine.execute_action(&action).map_err(|e| e.to_string())
+    let engine = action_engine.inner().clone();
+    tokio::task::spawn_blocking(move || {
+        let mut engine = engine.lock().map_err(|e| e.to_string())?;
+        engine.execute_action(&action).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -218,6 +241,41 @@ async fn export_profile(
 }
 
 #[tauri::command]
+async fn check_profile_security(
+    import_path: String,
+) -> Result<Vec<String>, String> {
+    let path = std::path::PathBuf::from(&import_path);
+    let json = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let profile: Profile = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+
+    let mut warnings: Vec<String> = Vec::new();
+
+    for (key, mapping) in &profile.mappings {
+        match &mapping.action {
+            Action::ScriptExecution { script_type, content } => {
+                warnings.push(format!(
+                    "Mapping \"{}\" ({}): contains a {:?} script ({} chars)",
+                    mapping.name, key, script_type, content.len()
+                ));
+            }
+            Action::MultiStepMacro { steps } => {
+                for (i, step) in steps.iter().enumerate() {
+                    if let Action::ScriptExecution { script_type, content } = &*step.action {
+                        warnings.push(format!(
+                            "Mapping \"{}\" ({}) step {}: contains a {:?} script ({} chars)",
+                            mapping.name, key, i + 1, script_type, content.len()
+                        ));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(warnings)
+}
+
+#[tauri::command]
 async fn import_profile(
     profile_manager: State<'_, ProfileManagerState>,
     import_path: String,
@@ -296,6 +354,7 @@ pub fn run() {
             get_current_active_app,
             add_smart_switch_rule,
             export_profile,
+            check_profile_security,
             import_profile,
             delete_mapping,
             delete_profile

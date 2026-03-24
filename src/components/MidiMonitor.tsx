@@ -3,7 +3,6 @@ import { MidiEvent, MidiMessageType } from '../types';
 
 interface MidiMonitorProps {
   lastEvent: MidiEvent | null;
-  onMidiEvent: (event: MidiEvent) => void;
 }
 
 const MidiMonitor: React.FC<MidiMonitorProps> = ({ lastEvent }) => {

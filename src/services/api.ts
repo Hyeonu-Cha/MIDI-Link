@@ -45,4 +45,16 @@ export const profileApi = {
   async deleteProfile(profileId: string): Promise<void> {
     return await invoke('delete_profile', { profileId });
   },
+
+  async checkProfileSecurity(importPath: string): Promise<string[]> {
+    return await invoke('check_profile_security', { importPath });
+  },
+
+  async importProfile(importPath: string): Promise<string> {
+    return await invoke('import_profile', { importPath });
+  },
+
+  async exportProfile(profileId: string, exportPath: string): Promise<void> {
+    return await invoke('export_profile', { profileId, exportPath });
+  },
 };

@@ -812,3 +812,236 @@ fn string_to_key(key_str: &str) -> Option<Key> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- string_to_key tests --
+
+    #[test]
+    fn key_lowercase_letters() {
+        for c in 'a'..='z' {
+            let result = string_to_key(&c.to_string());
+            assert_eq!(result, Some(Key::Unicode(c)), "Failed for key '{}'", c);
+        }
+    }
+
+    #[test]
+    fn key_uppercase_maps_to_lowercase() {
+        assert_eq!(string_to_key("A"), Some(Key::Unicode('a')));
+        assert_eq!(string_to_key("Z"), Some(Key::Unicode('z')));
+    }
+
+    #[test]
+    fn key_digits() {
+        for d in '0'..='9' {
+            let result = string_to_key(&d.to_string());
+            assert_eq!(result, Some(Key::Unicode(d)), "Failed for key '{}'", d);
+        }
+    }
+
+    #[test]
+    fn key_special_names() {
+        assert_eq!(string_to_key("space"), Some(Key::Space));
+        assert_eq!(string_to_key("enter"), Some(Key::Return));
+        assert_eq!(string_to_key("return"), Some(Key::Return));
+        assert_eq!(string_to_key("tab"), Some(Key::Tab));
+        assert_eq!(string_to_key("escape"), Some(Key::Escape));
+        assert_eq!(string_to_key("esc"), Some(Key::Escape));
+        assert_eq!(string_to_key("backspace"), Some(Key::Backspace));
+        assert_eq!(string_to_key("delete"), Some(Key::Delete));
+    }
+
+    #[test]
+    fn key_function_keys() {
+        assert_eq!(string_to_key("f1"), Some(Key::F1));
+        assert_eq!(string_to_key("f5"), Some(Key::F5));
+        assert_eq!(string_to_key("f12"), Some(Key::F12));
+    }
+
+    #[test]
+    fn key_unknown_returns_none() {
+        assert_eq!(string_to_key("unknown"), None);
+        assert_eq!(string_to_key(""), None);
+        assert_eq!(string_to_key("ctrl"), None);  // modifiers are not keys
+        assert_eq!(string_to_key("f13"), None);
+    }
+
+    // -- Action serialization tests --
+
+    #[test]
+    fn action_keyboard_shortcut_serializes() {
+        let action = Action::KeyboardShortcut {
+            keys: vec!["a".to_string()],
+            modifiers: vec!["ctrl".to_string()],
+        };
+        let json = serde_json::to_string(&action).unwrap();
+        assert!(json.contains("KeyboardShortcut"));
+        assert!(json.contains("ctrl"));
+    }
+
+    #[test]
+    fn action_launch_application_serializes() {
+        let action = Action::LaunchApplication {
+            path: "C:\\app.exe".to_string(),
+            args: vec!["--flag".to_string()],
+        };
+        let json = serde_json::to_string(&action).unwrap();
+        let deserialized: Action = serde_json::from_str(&json).unwrap();
+        if let Action::LaunchApplication { path, args } = deserialized {
+            assert_eq!(path, "C:\\app.exe");
+            assert_eq!(args, vec!["--flag"]);
+        } else {
+            panic!("Wrong action type after deserialization");
+        }
+    }
+
+    #[test]
+    fn action_open_url_roundtrip() {
+        let action = Action::OpenUrl { url: "https://example.com".to_string() };
+        let json = serde_json::to_string(&action).unwrap();
+        let deserialized: Action = serde_json::from_str(&json).unwrap();
+        if let Action::OpenUrl { url } = deserialized {
+            assert_eq!(url, "https://example.com");
+        } else {
+            panic!("Wrong action type");
+        }
+    }
+
+    #[test]
+    fn action_type_text_roundtrip() {
+        let action = Action::TypeText { text: "Hello World".to_string() };
+        let json = serde_json::to_string(&action).unwrap();
+        let deserialized: Action = serde_json::from_str(&json).unwrap();
+        if let Action::TypeText { text } = deserialized {
+            assert_eq!(text, "Hello World");
+        } else {
+            panic!("Wrong action type");
+        }
+    }
+
+    #[test]
+    fn action_mouse_click_roundtrip() {
+        let action = Action::MouseClick { button: "left".to_string(), x: 100, y: 200 };
+        let json = serde_json::to_string(&action).unwrap();
+        let deserialized: Action = serde_json::from_str(&json).unwrap();
+        if let Action::MouseClick { button, x, y } = deserialized {
+            assert_eq!(button, "left");
+            assert_eq!(x, 100);
+            assert_eq!(y, 200);
+        } else {
+            panic!("Wrong action type");
+        }
+    }
+
+    #[test]
+    fn action_system_command_all_variants_serialize() {
+        let commands = vec![
+            SystemCommandType::VolumeUp,
+            SystemCommandType::VolumeDown,
+            SystemCommandType::Mute,
+            SystemCommandType::PlayPause,
+            SystemCommandType::NextTrack,
+            SystemCommandType::PreviousTrack,
+            SystemCommandType::BrightnessUp,
+            SystemCommandType::BrightnessDown,
+            SystemCommandType::Sleep,
+            SystemCommandType::Lock,
+            SystemCommandType::Shutdown,
+            SystemCommandType::Restart,
+            SystemCommandType::MinimizeWindow,
+            SystemCommandType::MaximizeWindow,
+            SystemCommandType::CloseWindow,
+            SystemCommandType::SwitchDesktop,
+            SystemCommandType::TaskView,
+            SystemCommandType::Screenshot,
+            SystemCommandType::ClipboardCopy,
+            SystemCommandType::ClipboardPaste,
+        ];
+        for cmd in commands {
+            let action = Action::SystemCommand { command_type: cmd.clone() };
+            let json = serde_json::to_string(&action).unwrap();
+            let deserialized: Action = serde_json::from_str(&json).unwrap();
+            if let Action::SystemCommand { command_type } = deserialized {
+                assert_eq!(
+                    serde_json::to_string(&command_type).unwrap(),
+                    serde_json::to_string(&cmd).unwrap()
+                );
+            } else {
+                panic!("Wrong action type for {:?}", cmd);
+            }
+        }
+    }
+
+    #[test]
+    fn action_multi_step_macro_roundtrip() {
+        let action = Action::MultiStepMacro {
+            steps: vec![
+                MacroStep {
+                    action: Box::new(Action::TypeText { text: "step1".to_string() }),
+                    delay_ms: 100,
+                },
+                MacroStep {
+                    action: Box::new(Action::OpenUrl { url: "https://test.com".to_string() }),
+                    delay_ms: 0,
+                },
+            ],
+        };
+        let json = serde_json::to_string(&action).unwrap();
+        let deserialized: Action = serde_json::from_str(&json).unwrap();
+        if let Action::MultiStepMacro { steps } = deserialized {
+            assert_eq!(steps.len(), 2);
+            assert_eq!(steps[0].delay_ms, 100);
+            assert_eq!(steps[1].delay_ms, 0);
+        } else {
+            panic!("Wrong action type");
+        }
+    }
+
+    #[test]
+    fn action_script_execution_roundtrip() {
+        let action = Action::ScriptExecution {
+            script_type: ScriptType::PowerShell,
+            content: "Write-Host 'Hello'".to_string(),
+        };
+        let json = serde_json::to_string(&action).unwrap();
+        let deserialized: Action = serde_json::from_str(&json).unwrap();
+        if let Action::ScriptExecution { script_type, content } = deserialized {
+            assert!(matches!(script_type, ScriptType::PowerShell));
+            assert_eq!(content, "Write-Host 'Hello'");
+        } else {
+            panic!("Wrong action type");
+        }
+    }
+
+    #[test]
+    fn script_type_all_variants() {
+        let types = vec![ScriptType::PowerShell, ScriptType::Bash, ScriptType::Cmd];
+        for st in types {
+            let json = serde_json::to_string(&st).unwrap();
+            let deserialized: ScriptType = serde_json::from_str(&json).unwrap();
+            assert_eq!(
+                serde_json::to_string(&deserialized).unwrap(),
+                json
+            );
+        }
+    }
+
+    #[test]
+    fn action_mapping_serializes() {
+        let mapping = ActionMapping {
+            id: "m-1".to_string(),
+            name: "Test".to_string(),
+            midi_channel: 0,
+            midi_note_or_cc: 60,
+            action: Action::TypeText { text: "hello".to_string() },
+        };
+        let json = serde_json::to_string(&mapping).unwrap();
+        let deserialized: ActionMapping = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "m-1");
+        assert_eq!(deserialized.name, "Test");
+        assert_eq!(deserialized.midi_channel, 0);
+        assert_eq!(deserialized.midi_note_or_cc, 60);
+    }
+}
