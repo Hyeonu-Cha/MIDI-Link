@@ -9,6 +9,10 @@ export const midiApi = {
   async getMidiDevices(): Promise<string[]> {
     return await invoke('get_midi_devices');
   },
+
+  async reconnectMidi(): Promise<string[]> {
+    return await invoke('reconnect_midi');
+  },
 };
 
 export const actionApi = {

@@ -134,15 +134,20 @@ impl ActionEngine {
 
 
     fn execute_script(&mut self, script_type: &ScriptType, content: &str) -> Result<(), Box<dyn std::error::Error>> {
+        const SCRIPT_TIMEOUT_SECS: u64 = 30;
+
         info!("Executing script: type={:?}, content length={}", script_type, content.len());
 
-        let result = match script_type {
+        // Use a temp directory as the working directory to isolate scripts from the app
+        let work_dir = std::env::temp_dir();
+
+        let mut cmd = match script_type {
             ScriptType::PowerShell => {
                 #[cfg(target_os = "windows")]
                 {
-                    Command::new("powershell")
-                        .args(&["-Command", content])
-                        .spawn()
+                    let mut c = Command::new("powershell");
+                    c.args(&["-NoProfile", "-Command", content]);
+                    c
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
@@ -152,9 +157,9 @@ impl ActionEngine {
             ScriptType::Bash => {
                 #[cfg(not(target_os = "windows"))]
                 {
-                    Command::new("bash")
-                        .args(&["-c", content])
-                        .spawn()
+                    let mut c = Command::new("bash");
+                    c.args(&["-c", content]);
+                    c
                 }
                 #[cfg(target_os = "windows")]
                 {
@@ -164,9 +169,9 @@ impl ActionEngine {
             ScriptType::Cmd => {
                 #[cfg(target_os = "windows")]
                 {
-                    Command::new("cmd")
-                        .args(&["/c", content])
-                        .spawn()
+                    let mut c = Command::new("cmd");
+                    c.args(&["/c", content]);
+                    c
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
@@ -175,14 +180,55 @@ impl ActionEngine {
             }
         };
 
-        match result {
-            Ok(_) => {
-                info!("Successfully started script execution");
-                Ok(())
-            }
-            Err(e) => {
-                error!("Failed to execute script: {}", e);
-                Err(format!("Failed to execute script: {}", e).into())
+        // Sandbox: isolate working directory and clear sensitive env vars
+        cmd.current_dir(&work_dir)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .env_remove("TAURI_ENV")
+            .env_remove("DATABASE_URL")
+            .env_remove("SECRET_KEY")
+            .env_remove("API_KEY")
+            .env_remove("AWS_SECRET_ACCESS_KEY")
+            .env_remove("GITHUB_TOKEN");
+
+        let mut child = cmd.spawn().map_err(|e| {
+            error!("Failed to start script: {}", e);
+            format!("Failed to start script: {}", e)
+        })?;
+
+        // Wait with timeout
+        let timeout = std::time::Duration::from_secs(SCRIPT_TIMEOUT_SECS);
+        let start = std::time::Instant::now();
+
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if status.success() {
+                        info!("Script completed successfully");
+                    } else {
+                        let stderr = child.stderr.take()
+                            .and_then(|mut s| {
+                                let mut buf = String::new();
+                                std::io::Read::read_to_string(&mut s, &mut buf).ok()?;
+                                Some(buf)
+                            })
+                            .unwrap_or_default();
+                        warn!("Script exited with status {}: {}", status, stderr.trim());
+                    }
+                    return Ok(());
+                }
+                Ok(None) => {
+                    if start.elapsed() > timeout {
+                        warn!("Script exceeded {}s timeout, killing process", SCRIPT_TIMEOUT_SECS);
+                        let _ = child.kill();
+                        return Err(format!("Script timed out after {}s", SCRIPT_TIMEOUT_SECS).into());
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                Err(e) => {
+                    error!("Error waiting for script: {}", e);
+                    return Err(format!("Error waiting for script: {}", e).into());
+                }
             }
         }
     }

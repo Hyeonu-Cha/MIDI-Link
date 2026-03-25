@@ -7,9 +7,11 @@ import MidiMonitor from './MidiMonitor';
 import ProfileSelector from './ProfileSelector';
 import MappingGrid from './MappingGrid';
 import ActionEditor from './ActionEditor';
+import ToastContainer, { useToast } from './Toast';
 
 const Dashboard: FC = () => {
   const [midiEnabled, setMidiEnabled] = useState(false);
+  const [midiReconnecting, setMidiReconnecting] = useState(false);
   const [leftPanelVisible, setLeftPanelVisible] = useState(true);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -18,6 +20,7 @@ const Dashboard: FC = () => {
   const [showActionEditor, setShowActionEditor] = useState(false);
   const [selectedMapping, setSelectedMapping] = useState<string | null>(null);
   const [editingMapping, setEditingMapping] = useState<ActionMapping | null>(null);
+  const { toasts, addToast, dismissToast } = useToast();
 
   useEffect(() => {
     initializeApp();
@@ -52,6 +55,7 @@ const Dashboard: FC = () => {
       setActiveProfile(active);
     } catch (error) {
       console.error('Failed to initialize app:', error);
+      addToast('Failed to initialize app. Check MIDI devices and try again.', 'error');
       setMidiEnabled(false);
     }
   };
@@ -63,6 +67,7 @@ const Dashboard: FC = () => {
       setActiveProfile(active);
     } catch (error) {
       console.error('Failed to set active profile:', error);
+      addToast('Failed to switch profile.', 'error');
     }
   };
 
@@ -86,6 +91,7 @@ const Dashboard: FC = () => {
       setActiveProfile(active);
     } catch (error) {
       console.error('Failed to delete mapping:', error);
+      addToast('Failed to delete mapping.', 'error');
     }
   };
 
@@ -98,8 +104,23 @@ const Dashboard: FC = () => {
         setMidiEnabled(devices.length > 0);
       } catch (error) {
         console.error('Failed to enable MIDI:', error);
+        addToast('Failed to enable MIDI. No devices found.', 'error');
         setMidiEnabled(false);
       }
+    }
+  };
+
+  const handleReconnectMidi = async () => {
+    setMidiReconnecting(true);
+    try {
+      const devices = await midiApi.reconnectMidi();
+      setMidiEnabled(devices.length > 0);
+    } catch (error) {
+      console.error('Failed to reconnect MIDI:', error);
+      addToast('Failed to reconnect MIDI devices.', 'error');
+      setMidiEnabled(false);
+    } finally {
+      setMidiReconnecting(false);
     }
   };
 
@@ -150,6 +171,16 @@ const Dashboard: FC = () => {
                     {midiEnabled ? 'MIDI Enabled' : 'MIDI Disabled'}
                   </span>
                 </div>
+                {midiEnabled && (
+                  <button
+                    className="reconnect-btn"
+                    onClick={handleReconnectMidi}
+                    disabled={midiReconnecting}
+                    title="Rescan and reconnect MIDI devices"
+                  >
+                    {midiReconnecting ? 'Reconnecting...' : 'Reconnect'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -214,6 +245,7 @@ const Dashboard: FC = () => {
           }}
         />
       )}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 };

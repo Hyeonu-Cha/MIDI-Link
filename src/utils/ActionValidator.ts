@@ -1,9 +1,21 @@
 import { MacroStep } from '../types';
 
+export interface ValidatableFormData {
+  mappingName?: string;
+  keys?: string[];
+  modifiers?: string[];
+  appPath?: string;
+  url?: string;
+  text?: string;
+  mouseX?: number;
+  mouseY?: number;
+  scriptContent?: string;
+}
+
 export class ActionValidator {
   private errors: Record<string, string> = {};
 
-  validate(actionType: string, formData: any, isMultiAction: boolean, macroSteps: MacroStep[]): Record<string, string> {
+  validate(actionType: string, formData: ValidatableFormData, isMultiAction: boolean, macroSteps: MacroStep[]): Record<string, string> {
     this.errors = {};
 
     // Validate mapping name
@@ -22,10 +34,10 @@ export class ActionValidator {
     return this.errors;
   }
 
-  private validatePrimaryAction(actionType: string, formData: any) {
+  private validatePrimaryAction(actionType: string, formData: ValidatableFormData) {
     switch (actionType) {
       case 'KeyboardShortcut':
-        if (formData.keys.length === 0 && formData.modifiers.length === 0) {
+        if ((formData.keys?.length ?? 0) === 0 && (formData.modifiers?.length ?? 0) === 0) {
           this.errors.keys = 'At least one key or modifier is required';
         }
         break;
@@ -47,7 +59,7 @@ export class ActionValidator {
         }
         break;
       case 'MouseClick':
-        if (formData.mouseX < 0 || formData.mouseY < 0) {
+        if ((formData.mouseX ?? 0) < 0 || (formData.mouseY ?? 0) < 0) {
           this.errors.mousePosition = 'Mouse coordinates must be positive';
         }
         break;

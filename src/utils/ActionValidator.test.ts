@@ -204,7 +204,7 @@ describe('ActionValidator', () => {
         { action: { OpenUrl: { url: 'https://example.com' } }, delay_ms: 100 },
         { action: { TypeText: { text: 'hello' } }, delay_ms: 200 },
       ];
-      const errors = v.validate('KeyboardShortcut', { mappingName: 'test', keys: ['a'], modifiers: [] }, true, steps);
+      v.validate('KeyboardShortcut', { mappingName: 'test', keys: ['a'], modifiers: [] }, true, steps);
       expect(v.hasErrors()).toBe(false);
     });
 

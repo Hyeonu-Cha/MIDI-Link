@@ -15,13 +15,31 @@ type MidiHandlerState = Arc<Mutex<Option<MidiHandler>>>;
 type ActionEngineState = Arc<Mutex<ActionEngine>>;
 type ProfileManagerState = Arc<Mutex<Option<ProfileManager>>>;
 
-#[tauri::command]
-async fn initialize_midi(
+/// Spawns a thread that forwards MIDI events from the receiver to the frontend via Tauri events.
+fn spawn_midi_event_forwarder(
     app_handle: tauri::AppHandle,
-    midi_handler: State<'_, MidiHandlerState>,
-) -> Result<Vec<String>, String> {
-    let mut handler_guard = midi_handler.lock().map_err(|e| e.to_string())?;
+    event_receiver: Arc<Mutex<Option<std::sync::mpsc::Receiver<midi::MidiEvent>>>>,
+) {
+    std::thread::spawn(move || {
+        if let Ok(mut guard) = event_receiver.lock() {
+            if let Some(receiver) = guard.take() {
+                drop(guard);
+                while let Ok(event) = receiver.recv() {
+                    if let Err(e) = app_handle.emit("midi-event", &event) {
+                        error!("Failed to emit MIDI event: {}", e);
+                    }
+                }
+            }
+        }
+    });
+}
 
+/// Initializes a new MidiHandler, scans devices, starts listening, and spawns the event forwarder.
+/// Returns the device list. Stores the handler in `handler_guard`.
+fn setup_midi_handler(
+    app_handle: tauri::AppHandle,
+    handler_guard: &mut Option<MidiHandler>,
+) -> Result<Vec<String>, String> {
     match MidiHandler::new() {
         Ok(mut handler) => {
             let devices = handler.scan_devices().map_err(|e| e.to_string())?;
@@ -29,19 +47,9 @@ async fn initialize_midi(
             handler.start_listening().map_err(|e| e.to_string())?;
             *handler_guard = Some(handler);
 
-            // Spawn a thread to forward MIDI events to the frontend
-            std::thread::spawn(move || {
-                if let Ok(mut guard) = event_receiver.lock() {
-                    if let Some(receiver) = guard.take() {
-                        drop(guard);
-                        while let Ok(event) = receiver.recv() {
-                            if let Err(e) = app_handle.emit("midi-event", &event) {
-                                error!("Failed to emit MIDI event: {}", e);
-                            }
-                        }
-                    }
-                }
-            });
+            if !devices.is_empty() {
+                spawn_midi_event_forwarder(app_handle, event_receiver);
+            }
 
             Ok(devices)
         }
@@ -50,16 +58,36 @@ async fn initialize_midi(
 }
 
 #[tauri::command]
+async fn initialize_midi(
+    app_handle: tauri::AppHandle,
+    midi_handler: State<'_, MidiHandlerState>,
+) -> Result<Vec<String>, String> {
+    let mut handler_guard = midi_handler.lock().map_err(|e| e.to_string())?;
+    setup_midi_handler(app_handle, &mut handler_guard)
+}
+
+#[tauri::command]
 async fn get_midi_devices(
     midi_handler: State<'_, MidiHandlerState>,
 ) -> Result<Vec<String>, String> {
     let handler_guard = midi_handler.lock().map_err(|e| e.to_string())?;
-    
+
     if let Some(ref handler) = *handler_guard {
         handler.scan_devices().map_err(|e| e.to_string())
     } else {
         Ok(vec![])
     }
+}
+
+#[tauri::command]
+async fn reconnect_midi(
+    app_handle: tauri::AppHandle,
+    midi_handler: State<'_, MidiHandlerState>,
+) -> Result<Vec<String>, String> {
+    let mut handler_guard = midi_handler.lock().map_err(|e| e.to_string())?;
+    // Drop existing handler to release MIDI connections
+    *handler_guard = None;
+    setup_midi_handler(app_handle, &mut handler_guard)
 }
 
 #[tauri::command]
@@ -342,6 +370,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             initialize_midi,
             get_midi_devices,
+            reconnect_midi,
             execute_action,
             create_profile,
             get_profiles,
