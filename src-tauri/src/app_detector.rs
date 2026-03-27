@@ -167,15 +167,56 @@ impl AppDetector {
                 window_title,
             })
         } else {
-            // Fallback: try using wmctrl
+            // Fallback: try using wmctrl + xprop
+            // Get active window ID from xprop
+            let xprop_output = Command::new("xprop")
+                .args(&["-root", "_NET_ACTIVE_WINDOW"])
+                .output()
+                .unwrap_or_else(|_| std::process::Output {
+                    status: std::process::ExitStatus::default(),
+                    stdout: Vec::new(),
+                    stderr: Vec::new(),
+                });
+            let xprop_str = String::from_utf8_lossy(&xprop_output.stdout);
+
+            // Parse active window id (format: "_NET_ACTIVE_WINDOW(WINDOW): window id # 0x...")
+            let active_wid = xprop_str
+                .split("# ")
+                .nth(1)
+                .map(|s| s.trim())
+                .unwrap_or("0x0");
+
+            // Get window list from wmctrl
             let output = Command::new("wmctrl")
                 .args(&["-l", "-p"])
                 .output()?;
 
             let output_str = String::from_utf8_lossy(&output.stdout);
-            // Parse wmctrl output and find active window
-            // This is a simplified version - in practice you'd need more sophisticated parsing
-            
+
+            // Find the matching line by window ID
+            // wmctrl format: "0x04200003  0 12345 hostname Window Title"
+            for line in output_str.lines() {
+                let parts: Vec<&str> = line.splitn(5, char::is_whitespace).collect();
+                if parts.is_empty() { continue; }
+                // Compare window IDs (normalize hex)
+                let line_wid = parts[0].trim();
+                if line_wid == active_wid || u64::from_str_radix(line_wid.trim_start_matches("0x"), 16).unwrap_or(0)
+                    == u64::from_str_radix(active_wid.trim_start_matches("0x"), 16).unwrap_or(1) {
+                    let window_title = parts.get(4).unwrap_or(&"Unknown").trim().to_string();
+                    // Try to get PID-based process name
+                    let pid = parts.get(2).unwrap_or(&"0").trim();
+                    let process_name = std::fs::read_to_string(format!("/proc/{}/comm", pid))
+                        .unwrap_or_else(|_| "Unknown".to_string())
+                        .trim()
+                        .to_string();
+                    return Ok(ActiveApp {
+                        name: process_name.clone(),
+                        executable: process_name,
+                        window_title,
+                    });
+                }
+            }
+
             Ok(ActiveApp {
                 name: "Unknown".to_string(),
                 executable: "Unknown".to_string(),

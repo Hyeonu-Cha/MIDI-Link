@@ -5,6 +5,16 @@ import { useActionForm } from '../hooks/useActionForm';
 import { ActionValidator } from '../utils/ActionValidator';
 import ActionFieldsRenderer from './ActionFields/ActionFieldsRenderer';
 
+/** Extract the type key and payload from a discriminated union Action. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getActionData(action: Action): { type: string; data: Record<string, any> } {
+  const type = Object.keys(action)[0];
+  // The Action union's inner objects have heterogeneous value types (string, number, string[]),
+  // so we use `any` here rather than scattering casts at every usage site.
+  const data = Object.values(action)[0];
+  return { type, data };
+}
+
 interface ActionEditorProps {
   mappingKey: string | null;
   profile: Profile | null;
@@ -193,8 +203,7 @@ const ActionEditor: FC<ActionEditorProps> = ({
                 <label>Additional Actions:</label>
                 <div className="macro-steps">
                   {formState.macroSteps.map((step, index) => {
-                    const stepActionType = Object.keys(step.action)[0];
-                    const actionData = (step.action as any)[stepActionType];
+                    const { type: stepActionType, data: actionData } = getActionData(step.action);
                     const errPrefix = `step${index}`;
 
                     return (

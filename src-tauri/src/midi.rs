@@ -60,7 +60,8 @@ impl MidiHandler {
 
     pub fn start_listening(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let ports = self.input.ports();
-        let sender = self.event_sender.take().unwrap();
+        let sender = self.event_sender.take()
+            .ok_or("MIDI listener already started — cannot start listening twice")?;
 
         for (i, port) in ports.iter().enumerate() {
             let port_name = self.input.port_name(port)?;

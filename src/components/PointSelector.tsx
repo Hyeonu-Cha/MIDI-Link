@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import { FC, useEffect, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface PointSelectorProps {
   mouseX: number;
@@ -9,7 +10,7 @@ interface PointSelectorProps {
   errors?: Record<string, string>;
 }
 
-const PointSelector: React.FC<PointSelectorProps> = ({
+const PointSelector: FC<PointSelectorProps> = ({
   mouseX,
   mouseY,
   isSelecting,
@@ -17,61 +18,29 @@ const PointSelector: React.FC<PointSelectorProps> = ({
   onPositionChange,
   errors = {},
 }) => {
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-
-  // Clean up overlay if component unmounts during selection
-  useEffect(() => {
-    return () => {
-      if (overlayRef.current && document.body.contains(overlayRef.current)) {
-        document.body.removeChild(overlayRef.current);
-        document.body.style.pointerEvents = 'auto';
-      }
-    };
-  }, []);
+  const [showOverlay, setShowOverlay] = useState(false);
 
   const handleStartPointSelection = () => {
     onStartSelection();
-    document.body.style.pointerEvents = 'none';
+    setShowOverlay(true);
+  };
 
-    const overlay = document.createElement('div');
-    overlayRef.current = overlay;
-    overlay.id = 'point-selection-overlay';
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(255, 0, 0, 0.1);
-      cursor: crosshair;
-      z-index: 9999;
-      pointer-events: auto;
-    `;
+  const handleOverlayClick = useCallback((e: React.MouseEvent) => {
+    onPositionChange(e.clientX, e.clientY);
+    setShowOverlay(false);
+  }, [onPositionChange]);
 
-    const cleanup = () => {
-      if (document.body.contains(overlay)) {
-        document.body.removeChild(overlay);
-      }
-      document.body.style.pointerEvents = 'auto';
-      document.removeEventListener('keydown', handleEscape);
-      overlayRef.current = null;
-    };
-
-    const handleClick = (e: MouseEvent) => {
-      onPositionChange(e.clientX, e.clientY);
-      cleanup();
-    };
-
+  // Handle Escape key to cancel selection
+  useEffect(() => {
+    if (!showOverlay) return;
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        cleanup();
+        setShowOverlay(false);
       }
     };
-
-    overlay.addEventListener('click', handleClick);
     document.addEventListener('keydown', handleEscape);
-    document.body.appendChild(overlay);
-  };
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showOverlay]);
 
   return (
     <div className="form-group">
@@ -83,7 +52,7 @@ const PointSelector: React.FC<PointSelectorProps> = ({
           className="select-point-btn"
           disabled={isSelecting}
         >
-          {isSelecting ? 'Click anywhere on screen...' : 'Select Point on Screen'}
+          {showOverlay ? 'Click anywhere on screen...' : 'Select Point on Screen'}
         </button>
         <div className="help-text">
           Click the button above, then click anywhere on your screen to set the coordinates. Press Escape to cancel.
@@ -113,6 +82,13 @@ const PointSelector: React.FC<PointSelectorProps> = ({
       <div className="help-text">
         Current position: ({mouseX}, {mouseY})
       </div>
+      {showOverlay && createPortal(
+        <div
+          className="point-selection-overlay"
+          onClick={handleOverlayClick}
+        />,
+        document.body
+      )}
     </div>
   );
 };

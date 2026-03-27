@@ -152,8 +152,9 @@ const MappingGrid: React.FC<MappingGridProps> = ({
     }
     return a.midi_note_or_cc - b.midi_note_or_cc;
   });
-  const maxSlots = 16; // Show up to 16 slots in the grid
-  const emptySlots = Math.max(0, maxSlots - mappings.length);
+  // Show 3 empty "Add" slots, or at least enough to fill a minimum of 4 total
+  const minSlots = 4;
+  const emptySlots = Math.max(3, minSlots - mappings.length);
 
   return (
     <div className="mapping-grid">

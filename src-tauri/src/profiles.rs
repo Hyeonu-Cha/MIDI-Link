@@ -206,14 +206,29 @@ impl ProfileManager {
     pub fn import_profile(&mut self, import_path: &PathBuf) -> Result<String, Box<dyn std::error::Error>> {
         let json = fs::read_to_string(import_path)?;
         let mut profile: Profile = serde_json::from_str(&json)?;
-        
+
         // Generate new ID to avoid conflicts
         profile.id = uuid::Uuid::new_v4().to_string();
         profile.updated_at = chrono::Utc::now();
-        
+
+        // Deduplicate profile name if it already exists
+        let existing_names: Vec<String> = self.profiles.values().map(|p| p.name.clone()).collect();
+        if existing_names.contains(&profile.name) {
+            let base_name = profile.name.clone();
+            let mut suffix = 2;
+            loop {
+                let candidate = format!("{} ({})", base_name, suffix);
+                if !existing_names.contains(&candidate) {
+                    profile.name = candidate;
+                    break;
+                }
+                suffix += 1;
+            }
+        }
+
         let profile_id = profile.id.clone();
         self.add_profile(profile)?;
-        
+
         Ok(profile_id)
     }
 

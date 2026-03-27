@@ -314,6 +314,16 @@ impl ActionEngine {
         args: &[String],
     ) -> Result<(), Box<dyn std::error::Error>> {
         info!("Launching application: {} with args: {:?}", path, args);
+
+        // Validate the path exists and is a file
+        let app_path = std::path::Path::new(path);
+        if !app_path.exists() {
+            return Err(format!("Application not found: {}", path).into());
+        }
+        if !app_path.is_file() {
+            return Err(format!("Path is not a file: {}", path).into());
+        }
+
         match Command::new(path).args(args).spawn() {
             Ok(_) => {
                 info!("Successfully launched application: {}", path);
@@ -329,31 +339,42 @@ impl ActionEngine {
     fn execute_open_url(&mut self, url: &str) -> Result<(), Box<dyn std::error::Error>> {
         info!("Opening URL: {}", url);
 
+        // Validate URL scheme to prevent command injection
+        let trimmed = url.trim();
+        if !(trimmed.starts_with("http://") || trimmed.starts_with("https://") || trimmed.starts_with("mailto:")) {
+            return Err(format!("Invalid URL scheme. Only http://, https://, and mailto: are allowed: {}", trimmed).into());
+        }
+
+        // Reject URLs containing shell metacharacters
+        if trimmed.contains('&') || trimmed.contains('|') || trimmed.contains(';') || trimmed.contains('`') || trimmed.contains('$') || trimmed.contains('\n') {
+            return Err("URL contains invalid characters".into());
+        }
+
         let result = {
             #[cfg(target_os = "windows")]
             {
-                Command::new("cmd").args(&["/c", "start", url]).spawn()
+                Command::new("cmd").args(&["/c", "start", "", trimmed]).spawn()
             }
 
             #[cfg(target_os = "macos")]
             {
-                Command::new("open").arg(url).spawn()
+                Command::new("open").arg(trimmed).spawn()
             }
 
             #[cfg(target_os = "linux")]
             {
-                Command::new("xdg-open").arg(url).spawn()
+                Command::new("xdg-open").arg(trimmed).spawn()
             }
         };
 
         match result {
             Ok(_) => {
-                info!("Successfully opened URL: {}", url);
+                info!("Successfully opened URL: {}", trimmed);
                 Ok(())
             }
             Err(e) => {
-                error!("Failed to open URL '{}': {}", url, e);
-                Err(format!("Failed to open URL '{}': {}", url, e).into())
+                error!("Failed to open URL '{}': {}", trimmed, e);
+                Err(format!("Failed to open URL '{}': {}", trimmed, e).into())
             }
         }
     }

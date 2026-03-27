@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useState, useRef, useCallback } from 'react';
 import { Profile, MidiEvent, ActionMapping } from '../types';
 import { midiApi, profileApi } from '../services/api';
 import { listen } from '@tauri-apps/api/event';
@@ -21,20 +21,44 @@ const Dashboard: FC = () => {
   const [selectedMapping, setSelectedMapping] = useState<string | null>(null);
   const [editingMapping, setEditingMapping] = useState<ActionMapping | null>(null);
   const { toasts, addToast, dismissToast } = useToast();
+  const lastMidiUpdateRef = useRef(0);
+  const pendingMidiRef = useRef<MidiEvent | null>(null);
+  const midiRafRef = useRef<number | null>(null);
+
+  // Throttled MIDI event updater — at most once per 50ms to avoid re-render storms from high-frequency CC messages
+  const throttledSetMidiEvent = useCallback((event: MidiEvent) => {
+    const now = Date.now();
+    pendingMidiRef.current = event;
+    if (now - lastMidiUpdateRef.current >= 50) {
+      lastMidiUpdateRef.current = now;
+      setLastMidiEvent(event);
+      pendingMidiRef.current = null;
+    } else if (!midiRafRef.current) {
+      midiRafRef.current = requestAnimationFrame(() => {
+        if (pendingMidiRef.current) {
+          setLastMidiEvent(pendingMidiRef.current);
+          lastMidiUpdateRef.current = Date.now();
+          pendingMidiRef.current = null;
+        }
+        midiRafRef.current = null;
+      });
+    }
+  }, []);
 
   useEffect(() => {
     initializeApp();
   }, []);
 
-  // Listen for MIDI events from the Rust backend
+  // Listen for MIDI events from the Rust backend (throttled)
   useEffect(() => {
     const unlisten = listen<MidiEvent>('midi-event', (event) => {
-      setLastMidiEvent(event.payload);
+      throttledSetMidiEvent(event.payload);
     });
     return () => {
       unlisten.then((fn) => fn());
+      if (midiRafRef.current) cancelAnimationFrame(midiRafRef.current);
     };
-  }, []);
+  }, [throttledSetMidiEvent]);
 
   const initializeApp = async () => {
     try {
