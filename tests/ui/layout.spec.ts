@@ -35,8 +35,7 @@ const VP = { width: 1200, height: 800 };
  * calls resolve correctly without a Rust backend.
  */
 function tauriMock() {
-  const callbacks: Record<number, { fn: (v: unknown) => void; once: boolean }> = {};
-  let nextId = 1;
+  // Tauri v2.10+ uses window.__TAURI_INTERNALS__.invoke(cmd, args) directly.
   const store: {
     profiles: Record<string, { id: string; name: string; description: string; mappings: Record<string, unknown>; smart_switch_rules: unknown[] }>;
     activeProfileId: string | null;
@@ -90,24 +89,17 @@ function tauriMock() {
   };
 
   (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
-    transformCallback(fn: (v: unknown) => void, once: boolean) {
-      const id = nextId++;
-      callbacks[id] = { fn, once };
-      return id;
-    },
-    ipc({ cmd, callback: cbId, error: errId, payload }: { cmd: string; callback: number; error: number; payload: Record<string, unknown> }) {
-      const handler = handlers[cmd];
-      Promise.resolve().then(() => {
-        try {
-          const result = handler ? handler(payload || {}) : null;
-          const entry = callbacks[cbId];
-          if (entry) { entry.fn(result); if (entry.once) delete callbacks[cbId]; }
-        } catch (e) {
-          const entry = callbacks[errId];
-          if (entry) { entry.fn(String(e)); if (entry.once) delete callbacks[errId]; }
-        }
+    // v2.10+: invoke is called directly as a method
+    invoke(cmd: string, args: Record<string, unknown> = {}) {
+      return Promise.resolve().then(() => {
+        const handler = handlers[cmd];
+        return handler ? handler(args) : null;
       });
     },
+    // Legacy callback helpers (used by Channel / event system)
+    transformCallback(fn: (v: unknown) => void) { void fn; return 0; },
+    unregisterCallback() {},
+    convertFileSrc: (p: string) => p,
     metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main', windowLabel: 'main' } },
   };
 }
@@ -436,7 +428,7 @@ test.describe('4 – MappingGrid', () => {
     await createProfile(page, 'Overlay Midi');
     const opened = await openMidiSelector(page);
     if (!opened) { test.skip(); return; }
-    await page.locator('.modal-overlay').last().click({ force: true });
+    await page.locator('.modal-overlay').last().dispatchEvent('click');
     await expect(page.locator('.modal-content').filter({ hasText: /channel/i })).not.toBeVisible();
   });
 
