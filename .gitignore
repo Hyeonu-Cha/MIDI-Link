@@ -49,3 +49,8 @@ Desktop.ini
 progress.md
 TODO.md
 NOTES.md
+
+# Playwright artifacts
+playwright-report/
+test-results/
+.playwright/

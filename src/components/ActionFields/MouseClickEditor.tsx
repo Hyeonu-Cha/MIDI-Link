@@ -26,20 +26,25 @@ const MouseClickEditor: React.FC<MouseClickEditorProps> = ({
 }) => {
   const handlePositionChange = (x: number, y: number) => {
     onPositionChange(x, y);
-    if (errors.mousePosition) {
-      onErrorClear('mousePosition');
-    }
+    if (errors.mousePosition) onErrorClear('mousePosition');
   };
 
   return (
-    <div className="action-fields">
-      <div className="form-group">
-        <label>Mouse Button:</label>
-        <select value={mouseButton} onChange={(e) => onMouseButtonChange(e.target.value)}>
-          <option value="left">Left</option>
-          <option value="right">Right</option>
-          <option value="middle">Middle</option>
-        </select>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-primary/60">Mouse Button</label>
+        <div className="relative">
+          <select
+            value={mouseButton}
+            onChange={(e) => onMouseButtonChange(e.target.value)}
+            className="w-full bg-surface-container-high border border-outline-variant/30 focus:border-primary-container text-on-surface text-sm px-3 py-1.5 rounded-lg outline-none appearance-none cursor-pointer"
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="middle">Middle</option>
+          </select>
+          <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-sm">arrow_drop_down</span>
+        </div>
       </div>
       <PointSelector
         mouseX={mouseX}
