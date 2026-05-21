@@ -36,7 +36,9 @@
     "tauri:build": "tauri build",
     "tauri:build:debug": "tauri build --debug",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:ui": "playwright test",
+    "test:ui:report": "playwright show-report"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
@@ -46,6 +48,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tauri-apps/cli": "^2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

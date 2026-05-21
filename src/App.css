@@ -587,7 +587,7 @@ body {
 }
 
 .action-editor-modal .modal-content {
-  width: 600px;
+  width: min(600px, 90vw);
   height: 80vh;
   display: flex;
   flex-direction: column;
@@ -1026,6 +1026,30 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.step-action-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.step-action-selector label {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+.step-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.step-fields label {
+  font-size: 0.875rem;
+  color: #9ca3af;
 }
 
 .step-action {
