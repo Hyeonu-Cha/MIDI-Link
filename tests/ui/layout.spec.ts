@@ -21,22 +21,102 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const VP = { width: 1200, height: 800 };
-const MOCK_SCRIPT = path.join(__dirname, 'tauri-mock.js');
+
+// ─── Tauri IPC mock ───────────────────────────────────────────────────────────
+
+/**
+ * Inline Tauri v2 IPC mock. Injected via page.addInitScript (function form)
+ * so Playwright inlines it without any file-path resolution. Sets up
+ * window.__TAURI_INTERNALS__ with an in-memory store so that all invoke()
+ * calls resolve correctly without a Rust backend.
+ */
+function tauriMock() {
+  const callbacks: Record<number, { fn: (v: unknown) => void; once: boolean }> = {};
+  let nextId = 1;
+  const store: {
+    profiles: Record<string, { id: string; name: string; description: string; mappings: Record<string, unknown>; smart_switch_rules: unknown[] }>;
+    activeProfileId: string | null;
+  } = { profiles: {}, activeProfileId: null };
+
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  }
+
+  const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
+    initialize_midi: () => ['Mock MIDI Device'],
+    get_midi_devices: () => ['Mock MIDI Device'],
+    reconnect_midi: () => ['Mock MIDI Device'],
+    'plugin:app|version': () => '0.2.0-test',
+    'plugin:app|name': () => 'MIDI-Link',
+    get_profiles: () => Object.values(store.profiles),
+    get_active_profile: () => store.activeProfileId ? { ...store.profiles[store.activeProfileId] } : null,
+    create_profile: (a) => {
+      const id = uuid();
+      store.profiles[id] = { id, name: a.name as string, description: (a.description as string) || '', mappings: {}, smart_switch_rules: [] };
+      store.activeProfileId = id;
+      return id;
+    },
+    set_active_profile: (a) => { store.activeProfileId = a.profileId as string; return null; },
+    delete_profile: (a) => {
+      delete store.profiles[a.profileId as string];
+      if (store.activeProfileId === a.profileId) store.activeProfileId = null;
+      return null;
+    },
+    add_mapping_to_profile: (a) => {
+      const m = a.mapping as { id: string; midi_key?: string };
+      if (store.activeProfileId) store.profiles[store.activeProfileId].mappings[m.midi_key ?? m.id] = m;
+      return null;
+    },
+    delete_mapping: (a) => {
+      for (const p of Object.values(store.profiles))
+        for (const [k, v] of Object.entries(p.mappings))
+          if ((v as { id: string }).id === a.mappingId) { delete p.mappings[k]; break; }
+      return null;
+    },
+    execute_action: () => null,
+    check_profile_security: () => [],
+    import_profile: () => uuid(),
+    export_profile: () => null,
+    'plugin:dialog|open': () => '/mock/path/file.json',
+    'plugin:dialog|save': () => '/mock/path/export.json',
+    'plugin:opener|open_url': () => null,
+  };
+
+  (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
+    transformCallback(fn: (v: unknown) => void, once: boolean) {
+      const id = nextId++;
+      callbacks[id] = { fn, once };
+      return id;
+    },
+    ipc({ cmd, callback: cbId, error: errId, payload }: { cmd: string; callback: number; error: number; payload: Record<string, unknown> }) {
+      const handler = handlers[cmd];
+      Promise.resolve().then(() => {
+        try {
+          const result = handler ? handler(payload || {}) : null;
+          const entry = callbacks[cbId];
+          if (entry) { entry.fn(result); if (entry.once) delete callbacks[cbId]; }
+        } catch (e) {
+          const entry = callbacks[errId];
+          if (entry) { entry.fn(String(e)); if (entry.once) delete callbacks[errId]; }
+        }
+      });
+    },
+    metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main', windowLabel: 'main' } },
+  };
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Navigate to the app root with the Tauri IPC mock injected. */
 async function goto(page: Page) {
-  // addInitScript must be called before goto — it injects before page scripts run
-  await page.addInitScript({ path: MOCK_SCRIPT });
+  await page.addInitScript(tauriMock);
   await page.goto('/');
   await page.waitForLoadState('networkidle');
 }
