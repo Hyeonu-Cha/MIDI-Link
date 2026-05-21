@@ -18,6 +18,7 @@ export default defineConfig(async () => ({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "tests/**"],
   } satisfies UserConfig["test"],
   server: {
     port: 1420,

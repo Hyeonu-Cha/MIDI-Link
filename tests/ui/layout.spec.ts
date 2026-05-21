@@ -715,10 +715,7 @@ test.describe('9 – DOM contracts', () => {
   test('9.4 – Name input gets data-error=true on invalid submit', async ({ page }) => {
     await page.locator(tid('mapping-name-input')).fill('');
     await page.locator(tid('action-editor-save-btn')).click();
-    // useActionForm may or may not mark mappingName specifically — accept either.
-    const input = page.locator(tid('mapping-name-input'));
-    const dataErr = await input.getAttribute('data-error');
-    expect(['true', 'false']).toContain(dataErr);
+    await expect(page.locator(tid('mapping-name-input'))).toHaveAttribute('data-error', 'true');
   });
 
   test('9.5 – modifier-checkboxes group exists when KeyboardShortcut is active', async ({ page }) => {
