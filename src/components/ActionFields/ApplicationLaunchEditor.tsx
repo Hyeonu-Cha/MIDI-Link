@@ -10,6 +10,9 @@ interface ApplicationLaunchEditorProps {
   onErrorClear: (field: string) => void;
 }
 
+const inputCls = 'w-full bg-surface-container-high border border-outline-variant/30 focus:border-primary-container text-on-surface text-sm px-3 py-1.5 rounded-lg outline-none placeholder:text-on-surface-variant/40';
+const labelCls = 'font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-primary/60';
+
 const ApplicationLaunchEditor: React.FC<ApplicationLaunchEditorProps> = ({
   appPath,
   appArgs,
@@ -33,35 +36,36 @@ const ApplicationLaunchEditor: React.FC<ApplicationLaunchEditorProps> = ({
   };
 
   return (
-    <div className="action-fields">
-      <div className="form-group">
-        <label>Application Path:</label>
-        <div className="input-with-icon">
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className={labelCls}>Application Path</label>
+        <div className="flex gap-2">
           <input
             type="text"
             value={appPath}
-            onChange={(e) => {
-              onAppPathChange(e.target.value);
-              if (errors.appPath) onErrorClear('appPath');
-            }}
+            onChange={(e) => { onAppPathChange(e.target.value); if (errors.appPath) onErrorClear('appPath'); }}
             placeholder="C:\Program Files\App\app.exe"
-            className={errors.appPath ? 'error' : ''}
+            className={`flex-1 min-w-0 bg-surface-container-high border ${errors.appPath ? 'border-error' : 'border-outline-variant/30'} focus:border-primary-container text-on-surface text-sm px-3 py-1.5 rounded-lg outline-none placeholder:text-on-surface-variant/40`}
           />
-          <button type="button" onClick={handleBrowse} className="input-icon-btn" title="Browse for application">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            </svg>
+          <button
+            type="button"
+            onClick={handleBrowse}
+            className="px-3 py-1.5 rounded-lg bg-surface-container-high border border-outline-variant/30 hover:border-primary-container/40 text-on-surface-variant hover:text-on-surface transition-all flex-shrink-0"
+            title="Browse for application"
+          >
+            <span className="material-symbols-outlined text-sm">folder_open</span>
           </button>
         </div>
-        {errors.appPath && <div className="error-message">{errors.appPath}</div>}
+        {errors.appPath && <p className="text-xs text-error">{errors.appPath}</p>}
       </div>
-      <div className="form-group">
-        <label>Arguments (optional):</label>
+      <div className="space-y-2">
+        <label className={labelCls}>Arguments (optional)</label>
         <input
           type="text"
           value={appArgs}
           onChange={(e) => onAppArgsChange(e.target.value)}
           placeholder="--arg1 value1 --arg2"
+          className={inputCls}
         />
       </div>
     </div>

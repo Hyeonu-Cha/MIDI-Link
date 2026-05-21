@@ -6,17 +6,15 @@ interface SystemCommandEditorProps {
   onSystemCommandChange: (command: SystemCommandType) => void;
 }
 
-const SystemCommandEditor: FC<SystemCommandEditorProps> = ({
-  systemCommand,
-  onSystemCommandChange,
-}) => {
+const SystemCommandEditor: FC<SystemCommandEditorProps> = ({ systemCommand, onSystemCommandChange }) => {
   return (
-    <div className="action-fields">
-      <div className="form-group">
-        <label>System Command:</label>
+    <div className="space-y-2">
+      <label className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-primary/60">System Command</label>
+      <div className="relative">
         <select
           value={systemCommand}
           onChange={(e) => onSystemCommandChange(e.target.value as SystemCommandType)}
+          className="w-full bg-surface-container-high border border-outline-variant/30 focus:border-primary-container text-on-surface text-sm px-3 py-1.5 rounded-lg outline-none appearance-none cursor-pointer"
         >
           <optgroup label="Media Controls">
             <option value={SystemCommandType.VolumeUp}>Volume Up</option>
@@ -47,6 +45,7 @@ const SystemCommandEditor: FC<SystemCommandEditorProps> = ({
             <option value={SystemCommandType.ClipboardPaste}>Paste</option>
           </optgroup>
         </select>
+        <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-sm">arrow_drop_down</span>
       </div>
     </div>
   );
