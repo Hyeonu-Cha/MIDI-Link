@@ -272,7 +272,9 @@ const Dashboard: FC = () => {
               </div>
               <button
                 data-testid="new-mapping-btn"
-                className="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_4px_20px_rgba(0,242,255,0.2)]"
+                disabled={!activeProfile}
+                title={activeProfile ? undefined : 'Select or create a profile first'}
+                className="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_4px_20px_rgba(0,242,255,0.2)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
                 onClick={() => { setEditingMapping(null); setTriggerMidiSelector(true); }}
               >
                 <span className="material-symbols-outlined text-lg">add</span>
