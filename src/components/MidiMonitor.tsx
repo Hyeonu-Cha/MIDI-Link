@@ -1,71 +1,75 @@
-import { FC } from 'react';
+import React from 'react';
 import { MidiEvent, MidiMessageType } from '../types';
 
 interface MidiMonitorProps {
   lastEvent: MidiEvent | null;
+  midiEnabled?: boolean;
 }
 
-const MidiMonitor: FC<MidiMonitorProps> = ({ lastEvent }) => {
-  const formatType = (type: MidiMessageType): string => {
-    switch (type) {
-      case MidiMessageType.NoteOn: return 'Note On';
-      case MidiMessageType.NoteOff: return 'Note Off';
-      case MidiMessageType.ControlChange: return 'CC';
-      case MidiMessageType.ProgramChange: return 'PC';
-      default: return 'Unknown';
-    }
-  };
-
-  const noteNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-  const noteName = (n: number) => `${noteNames[n % 12]}${Math.floor(n / 12) - 1}`;
-
-  if (!lastEvent) {
-    return (
-      <div data-testid="midi-no-events" className="space-y-1">
-        <p className="text-[10px] text-on-surface-variant">Waiting for MIDI input...</p>
-        <p className="text-[9px] text-on-surface-variant/50">Press a key or turn a knob</p>
-      </div>
-    );
+function formatType(type: MidiMessageType): string {
+  switch (type) {
+    case MidiMessageType.NoteOn:          return 'NoteOn';
+    case MidiMessageType.NoteOff:         return 'NoteOff';
+    case MidiMessageType.ControlChange:   return 'CC';
+    case MidiMessageType.ProgramChange:   return 'PC';
+    default:                              return 'MSG';
   }
+}
 
-  const isNote = lastEvent.message_type === MidiMessageType.NoteOn || lastEvent.message_type === MidiMessageType.NoteOff;
-  const isCC = lastEvent.message_type === MidiMessageType.ControlChange;
+function noteName(note: number): string {
+  const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  return `${names[note % 12]}${Math.floor(note / 12) - 1}`;
+}
+
+const MidiMonitor: React.FC<MidiMonitorProps> = ({ lastEvent, midiEnabled = false }) => {
+  const ledOff = !midiEnabled || !lastEvent;
 
   return (
-    <div data-testid="midi-event" className="space-y-2 font-mono text-[9px]">
-      <div className="flex justify-between text-on-surface-variant border-b border-outline-variant/10 pb-1">
-        <span className="text-[8px] truncate max-w-[100px]">{lastEvent.device_name}</span>
-        <span className="text-primary-container font-bold">{formatType(lastEvent.message_type)}</span>
+    <div className="sb-monitor">
+      <div className="top">
+        <span className="lbl">MIDI Monitor</span>
+        <span className={`led${ledOff ? ' off' : ''}`} />
       </div>
-      {isNote && (
+
+      {lastEvent ? (
         <>
-          <div className="flex justify-between text-on-surface-variant border-b border-outline-variant/10 pb-1">
-            <span>Note {noteName(lastEvent.data1)}</span>
-            <span className="text-primary-container">{lastEvent.data1}</span>
+          <div className="row">
+            <span>TYPE</span>
+            <span className="v">{formatType(lastEvent.message_type)}</span>
           </div>
-          <div className="flex justify-between text-on-surface-variant">
-            <span>Vel</span>
-            <span className="text-primary-container">{lastEvent.velocity}</span>
+          <div className="row">
+            <span>CH</span>
+            <span className="v">{String(lastEvent.channel + 1).padStart(2, '0')}</span>
           </div>
+          {lastEvent.message_type === MidiMessageType.ControlChange ? (
+            <>
+              <div className="row">
+                <span>CC</span>
+                <span className="v">{String(lastEvent.data1).padStart(3, '0')}</span>
+              </div>
+              <div className="row">
+                <span>VAL</span>
+                <span className="v">{lastEvent.data2}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="row">
+                <span>NOTE</span>
+                <span className="v">{noteName(lastEvent.data1)} · {lastEvent.data1}</span>
+              </div>
+              <div className="row">
+                <span>VEL</span>
+                <span className="v">{lastEvent.velocity}</span>
+              </div>
+            </>
+          )}
         </>
-      )}
-      {isCC && (
+      ) : (
         <>
-          <div className="flex justify-between text-on-surface-variant border-b border-outline-variant/10 pb-1">
-            <span>CC {lastEvent.data1}</span>
-            <span className="text-primary-container">{lastEvent.data2}</span>
-          </div>
-          <div className="flex justify-between text-on-surface-variant">
-            <span>Ch</span>
-            <span>{lastEvent.channel + 1}</span>
-          </div>
+          <p className="empty">Waiting for MIDI input...</p>
+          <p className="empty fade">Press a key or turn a knob</p>
         </>
-      )}
-      {!isNote && !isCC && (
-        <div className="flex justify-between text-on-surface-variant">
-          <span>Data</span>
-          <span className="text-primary-container">{lastEvent.data1}</span>
-        </div>
       )}
     </div>
   );
