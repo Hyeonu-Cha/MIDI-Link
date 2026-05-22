@@ -68,7 +68,7 @@ describe('Full Mapping Flow', () => {
     });
   });
 
-  it('shows "Add mapping" slots when profile has no mappings', async () => {
+  it('shows "Add Mapping" slots when profile has no mappings', async () => {
     vi.mocked(invoke).mockImplementation(async (cmd: string) => {
       switch (cmd) {
         case 'initialize_midi': return [];
@@ -81,12 +81,12 @@ describe('Full Mapping Flow', () => {
     render(<Dashboard />);
 
     await waitFor(() => {
-      const addButtons = screen.getAllByText('Add mapping');
+      const addButtons = screen.getAllByText('Add Mapping');
       expect(addButtons.length).toBeGreaterThan(0);
     });
   });
 
-  it('opens MIDI value selector when clicking Add mapping', async () => {
+  it('opens MIDI value selector when clicking Add Mapping', async () => {
     vi.mocked(invoke).mockImplementation(async (cmd: string) => {
       switch (cmd) {
         case 'initialize_midi': return [];
@@ -99,13 +99,13 @@ describe('Full Mapping Flow', () => {
     render(<Dashboard />);
 
     await waitFor(() => {
-      expect(screen.getAllByText('Add mapping').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Add Mapping').length).toBeGreaterThan(0);
     });
 
-    fireEvent.click(screen.getAllByText('Add mapping')[0]);
+    fireEvent.click(screen.getAllByText('Add Mapping')[0]);
 
     await waitFor(() => {
-      expect(screen.getByText('Choose MIDI Values')).toBeInTheDocument();
+      expect(screen.getByText('Assign MIDI Source')).toBeInTheDocument();
     });
   });
 
@@ -122,21 +122,21 @@ describe('Full Mapping Flow', () => {
     render(<Dashboard />);
 
     await waitFor(() => {
-      expect(screen.getAllByText('Add mapping').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Add Mapping').length).toBeGreaterThan(0);
     });
 
     // Open MIDI selector
-    fireEvent.click(screen.getAllByText('Add mapping')[0]);
+    fireEvent.click(screen.getAllByText('Add Mapping')[0]);
 
     await waitFor(() => {
-      expect(screen.getByText('Choose MIDI Values')).toBeInTheDocument();
+      expect(screen.getByText('Assign MIDI Source')).toBeInTheDocument();
     });
 
-    // Click Create
-    fireEvent.click(screen.getByText('Create'));
+    // Click Assign
+    fireEvent.click(screen.getByText('Assign'));
 
     await waitFor(() => {
-      expect(screen.getByText('Create Action Mapping')).toBeInTheDocument();
+      expect(screen.getByText('SIGNAL ENGINE // MAPPING_v2.0')).toBeInTheDocument();
     });
   });
 
@@ -154,7 +154,7 @@ describe('Full Mapping Flow', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Test Mapping')).toBeInTheDocument();
-      expect(screen.getByText('Type: "Hello"')).toBeInTheDocument();
+      expect(screen.getByText('"Hello"')).toBeInTheDocument();
     });
   });
 
@@ -175,7 +175,7 @@ describe('Full Mapping Flow', () => {
     });
 
     // Click the delete button (trash icon)
-    const deleteBtn = screen.getByTitle('Delete mapping');
+    const deleteBtn = screen.getByTitle('Delete');
     fireEvent.click(deleteBtn);
 
     await waitFor(() => {
@@ -206,7 +206,7 @@ describe('Full Mapping Flow', () => {
     });
 
     // Open delete modal
-    fireEvent.click(screen.getByTitle('Delete mapping'));
+    fireEvent.click(screen.getByTitle('Delete'));
 
     await waitFor(() => {
       expect(screen.getByText('Delete Mapping')).toBeInTheDocument();
@@ -237,14 +237,14 @@ describe('Full Mapping Flow', () => {
     render(<Dashboard />);
 
     await waitFor(() => {
-      expect(screen.getByText('MIDI Disabled')).toBeInTheDocument();
+      expect(screen.getByTitle('Enable MIDI')).toBeInTheDocument();
     });
 
     // Click toggle to enable
-    fireEvent.click(screen.getByText('MIDI Disabled'));
+    fireEvent.click(screen.getByTitle('Enable MIDI'));
 
     await waitFor(() => {
-      expect(screen.getByText('MIDI Enabled')).toBeInTheDocument();
+      expect(screen.getByTitle('Disable MIDI')).toBeInTheDocument();
     });
   });
 });

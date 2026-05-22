@@ -10,6 +10,8 @@ interface ScriptExecutionEditorProps {
   onErrorClear: (field: string) => void;
 }
 
+const labelCls = 'font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-primary/60';
+
 const ScriptExecutionEditor: React.FC<ScriptExecutionEditorProps> = ({
   scriptType,
   scriptContent,
@@ -19,42 +21,32 @@ const ScriptExecutionEditor: React.FC<ScriptExecutionEditorProps> = ({
   onErrorClear,
 }) => {
   return (
-    <div className="action-fields">
-      <div className="form-group">
-        <label>Script Type:</label>
-        <select
-          value={scriptType}
-          onChange={(e) => onScriptTypeChange(e.target.value as ScriptType)}
-        >
-          <option value={ScriptType.PowerShell}>PowerShell (Windows)</option>
-          <option value={ScriptType.Bash}>Bash (Linux/macOS)</option>
-          <option value={ScriptType.Cmd}>Command Prompt (Windows)</option>
-        </select>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className={labelCls}>Script Type</label>
+        <div className="relative">
+          <select
+            value={scriptType}
+            onChange={(e) => onScriptTypeChange(e.target.value as ScriptType)}
+            className="w-full bg-surface-container-high border border-outline-variant/30 focus:border-primary-container text-on-surface text-sm px-3 py-1.5 rounded-lg outline-none appearance-none cursor-pointer"
+          >
+            <option value={ScriptType.PowerShell}>PowerShell (Windows)</option>
+            <option value={ScriptType.Bash}>Bash (Linux/macOS)</option>
+            <option value={ScriptType.Cmd}>Command Prompt (Windows)</option>
+          </select>
+          <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-sm">arrow_drop_down</span>
+        </div>
       </div>
-      <div className="form-group">
-        <label>Script Content:</label>
+      <div className="space-y-2">
+        <label className={labelCls}>Script Content</label>
         <textarea
           value={scriptContent}
-          onChange={(e) => {
-            onScriptContentChange(e.target.value);
-            if (errors.scriptContent) {
-              onErrorClear('scriptContent');
-            }
-          }}
+          onChange={(e) => { onScriptContentChange(e.target.value); if (errors.scriptContent) onErrorClear('scriptContent'); }}
           placeholder="Enter your script commands..."
-          rows={8}
-          style={{ fontFamily: 'monospace' }}
-          className={errors.scriptContent ? 'error' : ''}
+          rows={6}
+          className={`w-full bg-surface-container-high border ${errors.scriptContent ? 'border-error' : 'border-outline-variant/30'} focus:border-primary-container text-on-surface text-sm px-3 py-1.5 rounded-lg outline-none placeholder:text-on-surface-variant/40 resize-none font-mono`}
         />
-        {errors.scriptContent && <div className="error-message">{errors.scriptContent}</div>}
-        <div className="help-text">
-          Example commands:
-          <ul>
-            <li>PowerShell: Get-Process | Where-Object {'{'}$_.CPU -gt 100{'}'}</li>
-            <li>Bash: ls -la && echo "Directory listing complete"</li>
-            <li>Cmd: dir && echo Directory listing complete</li>
-          </ul>
-        </div>
+        {errors.scriptContent && <p className="text-xs text-error">{errors.scriptContent}</p>}
       </div>
     </div>
   );

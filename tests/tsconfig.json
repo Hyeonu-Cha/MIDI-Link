@@ -1,13 +1,11 @@
 {
+  "extends": "../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "types": ["@playwright/test", "node"],
     "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "types": ["node", "@playwright/test"]
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "isolatedModules": false
   },
-  "include": ["**/*.ts"]
+  "include": ["./**/*.ts"]
 }
