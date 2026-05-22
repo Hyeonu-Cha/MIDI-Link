@@ -11,8 +11,8 @@ import ToastContainer, { useToast } from './Toast';
 
 const Dashboard: FC = () => {
   const [midiEnabled, setMidiEnabled] = useState(false);
+  const [midiDevices, setMidiDevices] = useState<string[]>([]);
   const [midiReconnecting, setMidiReconnecting] = useState(false);
-  const [leftPanelVisible, setLeftPanelVisible] = useState(true);
   const [activeProfile, setActiveProfile] = useState<Profile | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [appVersion, setAppVersion] = useState('');
@@ -20,12 +20,12 @@ const Dashboard: FC = () => {
   const [showActionEditor, setShowActionEditor] = useState(false);
   const [selectedMapping, setSelectedMapping] = useState<string | null>(null);
   const [editingMapping, setEditingMapping] = useState<ActionMapping | null>(null);
+  const [triggerNewMapping, setTriggerNewMapping] = useState(false);
   const { toasts, addToast, dismissToast } = useToast();
   const lastMidiUpdateRef = useRef(0);
   const pendingMidiRef = useRef<MidiEvent | null>(null);
   const midiRafRef = useRef<number | null>(null);
 
-  // Throttled MIDI event updater — at most once per 50ms to avoid re-render storms from high-frequency CC messages
   const throttledSetMidiEvent = useCallback((event: MidiEvent) => {
     const now = Date.now();
     pendingMidiRef.current = event;
@@ -49,7 +49,6 @@ const Dashboard: FC = () => {
     initializeApp();
   }, []);
 
-  // Listen for MIDI events from the Rust backend (throttled)
   useEffect(() => {
     const unlisten = listen<MidiEvent>('midi-event', (event) => {
       throttledSetMidiEvent(event.payload);
@@ -62,19 +61,13 @@ const Dashboard: FC = () => {
 
   const initializeApp = async () => {
     try {
-      // Load app version
       const version = await getVersion();
       setAppVersion(`v${version}`);
-
-      // Initialize MIDI
       const devices = await midiApi.initializeMidi();
+      setMidiDevices(devices);
       setMidiEnabled(devices.length > 0);
-
-      // Load profiles
       const profileList = await profileApi.getProfiles();
       setProfiles(profileList);
-
-      // Get active profile
       const active = await profileApi.getActiveProfile();
       setActiveProfile(active);
     } catch (error) {
@@ -108,9 +101,7 @@ const Dashboard: FC = () => {
 
   const handleDeleteMapping = async (mappingId: string) => {
     try {
-      // Call a new API to delete mapping
       await profileApi.deleteMapping(mappingId);
-      // Refresh active profile
       const active = await profileApi.getActiveProfile();
       setActiveProfile(active);
     } catch (error) {
@@ -122,9 +113,11 @@ const Dashboard: FC = () => {
   const handleToggleMidi = async () => {
     if (midiEnabled) {
       setMidiEnabled(false);
+      setMidiDevices([]);
     } else {
       try {
         const devices = await midiApi.initializeMidi();
+        setMidiDevices(devices);
         setMidiEnabled(devices.length > 0);
       } catch (error) {
         console.error('Failed to enable MIDI:', error);
@@ -138,6 +131,7 @@ const Dashboard: FC = () => {
     setMidiReconnecting(true);
     try {
       const devices = await midiApi.reconnectMidi();
+      setMidiDevices(devices);
       setMidiEnabled(devices.length > 0);
     } catch (error) {
       console.error('Failed to reconnect MIDI:', error);
@@ -148,105 +142,158 @@ const Dashboard: FC = () => {
     }
   };
 
-  const toggleLeftPanel = () => {
-    setLeftPanelVisible(!leftPanelVisible);
-  };
+  const totalMappings = activeProfile ? Object.keys(activeProfile.mappings).length : 0;
+  const firstDevice = midiDevices[0] ?? null;
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <div className="header-title">
-          <img src="/MIDI-Link.png" alt="MIDI-Link" className="logo" />
-          <h1>MIDI-Link</h1>
-        </div>
-        <div className="header-controls">
-          <div className="version-display">
-            {appVersion}
-          </div>
-        </div>
-      </header>
+    <div className="app-shell">
+      {/* atmospheric glow blobs */}
+      <div className="atmos-cyan" />
+      <div className="atmos-violet" />
 
-      <div className="dashboard-content">
-        {leftPanelVisible && (
-          <div className="left-panel">
-            <div className="section">
-              <div className="section-header-with-toggle">
-                <h3>MIDI</h3>
-                <button
-                  className={`panel-toggle-btn left-panel-open`}
-                  onClick={toggleLeftPanel}
-                  title="Hide panel"
-                >
-                  {'<<'}
-                </button>
-              </div>
-              <div className="midi-toggle-container">
-                <div className="midi-toggle" onClick={handleToggleMidi}>
-                  <input
-                    type="checkbox"
-                    checked={midiEnabled}
-                    readOnly
-                    className="midi-toggle-input"
-                  />
-                  <span className={`midi-toggle-slider ${midiEnabled ? 'enabled' : 'disabled'}`}>
-                    <span className="midi-toggle-button"></span>
-                  </span>
-                  <span className="midi-toggle-label">
-                    {midiEnabled ? 'MIDI Enabled' : 'MIDI Disabled'}
-                  </span>
-                </div>
-                {midiEnabled && (
-                  <button
-                    className="reconnect-btn"
-                    onClick={handleReconnectMidi}
-                    disabled={midiReconnecting}
-                    title="Rescan and reconnect MIDI devices"
-                  >
-                    {midiReconnecting ? 'Reconnecting...' : 'Reconnect'}
-                  </button>
+      {/* ── Top Nav ─────────────────────────────────────────────── */}
+      <nav className="topnav">
+        <div className="left">
+          <h1 className="wordmark">
+            MIDI<span className="accent">-</span>Link
+          </h1>
+          <nav>
+            <button className="navlink active">Studio</button>
+          </nav>
+        </div>
+        <div className="right">
+          {appVersion && <span className="version">{appVersion}</span>}
+          <div className="divider" />
+          {midiEnabled && (
+            <span className="learn-pill">
+              <span className="dot" />
+              <span className="text">LIVE</span>
+            </span>
+          )}
+          <button
+            className="icon-btn"
+            onClick={handleToggleMidi}
+            title={midiEnabled ? 'Disable MIDI' : 'Enable MIDI'}
+          >
+            <span className="material-symbols-outlined">settings_input_component</span>
+          </button>
+          {midiEnabled && (
+            <button
+              className="icon-btn"
+              onClick={handleReconnectMidi}
+              disabled={midiReconnecting}
+              title="Reconnect MIDI devices"
+            >
+              <span className={`material-symbols-outlined${midiReconnecting ? ' spin' : ''}`}>
+                refresh
+              </span>
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* ── Body ────────────────────────────────────────────────── */}
+      <div className="body-row">
+        {/* Sidebar */}
+        <aside className="sidebar">
+          <div className="sb-head">
+            <h2>Signal Routing</h2>
+            <p>{activeProfile?.name ?? 'No profile active'}</p>
+          </div>
+
+          <nav className="sb-nav">
+            <button className="sb-link active">
+              <span className="label">
+                <span className="material-symbols-outlined">bolt</span>
+                Studio Dashboard
+              </span>
+            </button>
+            <button className="sb-link">
+              <span className="label">
+                <span className="material-symbols-outlined">person_search</span>
+                Profile Select
+              </span>
+            </button>
+          </nav>
+
+          <div className="sb-foot">
+            <ProfileSelector
+              profiles={profiles}
+              activeProfile={activeProfile}
+              onProfileChange={handleProfileChange}
+              onProfileDeleted={initializeApp}
+            />
+
+            <div className="sb-status">
+              <div className="top">
+                <span className="lbl">MIDI Status</span>
+                {midiEnabled ? (
+                  <span className="check material-symbols-outlined">check_circle</span>
+                ) : (
+                  <span className="offline-icon material-symbols-outlined">settings_input_component</span>
                 )}
               </div>
+              <p className="value">{midiEnabled ? (firstDevice ?? 'Connected') : 'Offline'}</p>
+              <p className="meta">{midiEnabled ? 'Ready for input' : 'No device detected'}</p>
             </div>
 
-            <div className="section">
-              <h3>Profile</h3>
-              <ProfileSelector
-                profiles={profiles}
-                activeProfile={activeProfile}
-                onProfileChange={handleProfileChange}
-                onProfileDeleted={initializeApp}
-              />
-            </div>
-
-            <div className="section">
-              <h3>MIDI Monitor</h3>
-              <MidiMonitor
-                lastEvent={lastMidiEvent}
-              />
-            </div>
+            <MidiMonitor lastEvent={lastMidiEvent} midiEnabled={midiEnabled} />
           </div>
-        )}
+        </aside>
 
-        <div className="main-panel">
-          <div className={`section ${!leftPanelVisible ? 'with-toggle' : ''} main-section`}>
-            {!leftPanelVisible && (
+        {/* Main content */}
+        <main className="main">
+          <div className="main-inner">
+            <header className="dash-head">
+              <div>
+                <div className="dash-title-row">
+                  <h2 className="dash-title">Studio Dashboard</h2>
+                  {activeProfile && (
+                    <span className="profile-badge">{activeProfile.name}</span>
+                  )}
+                </div>
+                <p className="dash-subtitle">
+                  Orchestrate your workflow with precision MIDI routing and real-time automation control.
+                </p>
+              </div>
               <button
-                className={`panel-toggle-btn left-panel-closed`}
-                onClick={toggleLeftPanel}
-                title="Show panel"
+                className="btn-cta"
+                disabled={!activeProfile}
+                title={activeProfile ? undefined : 'Select or create a profile first'}
+                onClick={() => setTriggerNewMapping(true)}
               >
-                {'>>'}
+                <span className="material-symbols-outlined">add</span>
+                NEW MAPPING
               </button>
-            )}
-            <h3>Mappings</h3>
+            </header>
+
             <MappingGrid
               profile={activeProfile}
               onCreateMapping={handleCreateMapping}
               onEditMapping={handleEditMapping}
               onDeleteMapping={handleDeleteMapping}
+              triggerMidiSelector={triggerNewMapping}
+              onTriggerHandled={() => setTriggerNewMapping(false)}
             />
+
+            <div className="dash-footer">
+              <div className="stat">
+                <p className="lbl">Active Mappings</p>
+                <p className="val">{totalMappings}</p>
+              </div>
+              <div className="stat">
+                <p className="lbl">MIDI Status</p>
+                <p className={`val${midiEnabled ? ' cyan' : ''}`}>
+                  {midiEnabled ? 'Online' : 'Offline'}
+                </p>
+              </div>
+              <div className="stat">
+                <p className="lbl">Profiles</p>
+                <p className="val violet">{profiles.length}</p>
+              </div>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
 
       {showActionEditor && (
@@ -260,7 +307,6 @@ const Dashboard: FC = () => {
             setEditingMapping(null);
           }}
           onSave={async () => {
-            // Refresh active profile
             const active = await profileApi.getActiveProfile();
             setActiveProfile(active);
             setShowActionEditor(false);
@@ -269,6 +315,7 @@ const Dashboard: FC = () => {
           }}
         />
       )}
+
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

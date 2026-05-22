@@ -4,11 +4,9 @@ import './App.css';
 
 function App() {
   return (
-    <div className="app">
-      <ErrorBoundary>
-        <Dashboard />
-      </ErrorBoundary>
-    </div>
+    <ErrorBoundary>
+      <Dashboard />
+    </ErrorBoundary>
   );
 }
 

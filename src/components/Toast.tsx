@@ -13,14 +13,18 @@ interface ToastContainerProps {
   onDismiss: (id: number) => void;
 }
 
-const ToastContainer: FC<ToastContainerProps> = ({ toasts, onDismiss }) => {
-  return (
-    <div className="toast-container">
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
-      ))}
-    </div>
-  );
+const ToastContainer: FC<ToastContainerProps> = ({ toasts, onDismiss }) => (
+  <div className="toast-container">
+    {toasts.map((toast) => (
+      <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
+    ))}
+  </div>
+);
+
+const typeClass: Record<ToastMessage['type'], string> = {
+  error:   't-error',
+  success: 't-success',
+  info:    't-info',
 };
 
 const ToastItem: FC<{ toast: ToastMessage; onDismiss: (id: number) => void }> = ({ toast, onDismiss }) => {
@@ -30,9 +34,12 @@ const ToastItem: FC<{ toast: ToastMessage; onDismiss: (id: number) => void }> = 
   }, [toast.id, onDismiss]);
 
   return (
-    <div className={`toast toast-${toast.type}`} onClick={() => onDismiss(toast.id)}>
-      <span className="toast-text">{toast.text}</span>
-      <button className="toast-close">&times;</button>
+    <div
+      className={`toast ${typeClass[toast.type]}`}
+      onClick={() => onDismiss(toast.id)}
+    >
+      <span>{toast.text}</span>
+      <button className="toast-close" aria-label="Dismiss">×</button>
     </div>
   );
 };

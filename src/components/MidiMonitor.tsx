@@ -3,79 +3,73 @@ import { MidiEvent, MidiMessageType } from '../types';
 
 interface MidiMonitorProps {
   lastEvent: MidiEvent | null;
+  midiEnabled?: boolean;
 }
 
-const MidiMonitor: React.FC<MidiMonitorProps> = ({ lastEvent }) => {
-  const formatMessageType = (type: MidiMessageType): string => {
-    switch (type) {
-      case MidiMessageType.NoteOn:
-        return 'Note On';
-      case MidiMessageType.NoteOff:
-        return 'Note Off';
-      case MidiMessageType.ControlChange:
-        return 'CC';
-      case MidiMessageType.ProgramChange:
-        return 'PC';
-      default:
-        return 'Unknown';
-    }
-  };
+function formatType(type: MidiMessageType): string {
+  switch (type) {
+    case MidiMessageType.NoteOn:          return 'NoteOn';
+    case MidiMessageType.NoteOff:         return 'NoteOff';
+    case MidiMessageType.ControlChange:   return 'CC';
+    case MidiMessageType.ProgramChange:   return 'PC';
+    default:                              return 'MSG';
+  }
+}
 
-  const getMidiNoteName = (note: number): string => {
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const octave = Math.floor(note / 12) - 1;
-    const noteName = noteNames[note % 12];
-    return `${noteName}${octave}`;
-  };
+function noteName(note: number): string {
+  const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  return `${names[note % 12]}${Math.floor(note / 12) - 1}`;
+}
+
+const MidiMonitor: React.FC<MidiMonitorProps> = ({ lastEvent, midiEnabled = false }) => {
+  const ledOff = !midiEnabled || !lastEvent;
 
   return (
-    <div className="midi-monitor">
+    <div className="sb-monitor">
+      <div className="top">
+        <span className="lbl">MIDI Monitor</span>
+        <span className={`led${ledOff ? ' off' : ''}`} />
+      </div>
+
       {lastEvent ? (
-        <div className="midi-event">
-          <div className="event-header">
-            <span className="device-name">{lastEvent.device_name}</span>
-            <span className="message-type">{formatMessageType(lastEvent.message_type)}</span>
+        <>
+          <div className="row">
+            <span>TYPE</span>
+            <span className="v">{formatType(lastEvent.message_type)}</span>
           </div>
-          <div className="event-details">
-            <div className="detail-row">
-              <span className="label">Channel:</span>
-              <span className="value">{lastEvent.channel + 1}</span>
-            </div>
-            {lastEvent.message_type === MidiMessageType.NoteOn || lastEvent.message_type === MidiMessageType.NoteOff ? (
-              <>
-                <div className="detail-row">
-                  <span className="label">Note:</span>
-                  <span className="value">{getMidiNoteName(lastEvent.data1)} ({lastEvent.data1})</span>
-                </div>
-                <div className="detail-row">
-                  <span className="label">Velocity:</span>
-                  <span className="value">{lastEvent.velocity}</span>
-                </div>
-              </>
-            ) : lastEvent.message_type === MidiMessageType.ControlChange ? (
-              <>
-                <div className="detail-row">
-                  <span className="label">CC:</span>
-                  <span className="value">{lastEvent.data1}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="label">Value:</span>
-                  <span className="value">{lastEvent.data2}</span>
-                </div>
-              </>
-            ) : (
-              <div className="detail-row">
-                <span className="label">Data:</span>
-                <span className="value">{lastEvent.data1}</span>
+          <div className="row">
+            <span>CH</span>
+            <span className="v">{String(lastEvent.channel + 1).padStart(2, '0')}</span>
+          </div>
+          {lastEvent.message_type === MidiMessageType.ControlChange ? (
+            <>
+              <div className="row">
+                <span>CC</span>
+                <span className="v">{String(lastEvent.data1).padStart(3, '0')}</span>
               </div>
-            )}
-          </div>
-        </div>
+              <div className="row">
+                <span>VAL</span>
+                <span className="v">{lastEvent.data2}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="row">
+                <span>NOTE</span>
+                <span className="v">{noteName(lastEvent.data1)} · {lastEvent.data1}</span>
+              </div>
+              <div className="row">
+                <span>VEL</span>
+                <span className="v">{lastEvent.velocity}</span>
+              </div>
+            </>
+          )}
+        </>
       ) : (
-        <div className="no-events">
-          <div className="waiting-message">Waiting for MIDI input...</div>
-          <div className="instruction">Press a key or turn a knob on your MIDI device</div>
-        </div>
+        <>
+          <p className="empty">Waiting for MIDI input...</p>
+          <p className="empty fade">Press a key or turn a knob</p>
+        </>
       )}
     </div>
   );
