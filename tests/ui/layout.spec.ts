@@ -231,7 +231,7 @@ test.describe('2 – Dashboard', () => {
   });
 
   test('2.3 – MIDI icon button is visible in topnav', async ({ page }) => {
-    await expect(page.locator('.topnav .icon-btn')).toBeVisible();
+    await expect(page.locator('.topnav .icon-btn').first()).toBeVisible();
   });
 
   test('2.4 – MIDI live pill appears when MIDI is enabled', async ({ page }) => {
@@ -631,7 +631,7 @@ test.describe('6 – MidiMonitor', () => {
   });
 
   test('6.3 – Empty state contains a waiting/instruction message', async ({ page }) => {
-    const emptyMsg = page.locator('.sb-monitor .empty');
+    const emptyMsg = page.locator('.sb-monitor .empty').first();
     if (await emptyMsg.isVisible()) {
       const text = await emptyMsg.textContent();
       expect(text?.trim().length).toBeGreaterThan(0);
