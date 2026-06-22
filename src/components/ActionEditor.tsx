@@ -247,7 +247,7 @@ const ActionEditor: FC<ActionEditorProps> = ({ mappingKey, profile, editingMappi
                     return (
                       <div data-testid="macro-step" key={index} className="relative group">
                         {/* Rack node */}
-                        <div className={`absolute -left-[27px] top-5 w-4 h-4 rounded-full flex items-center justify-center z-10 border-2 ${isLast ? 'bg-primary border-primary-container shadow-[0_0_10px_#00f2ff]' : 'bg-surface-container-highest border-primary/60'}`}>
+                        <div className={`absolute -left-[27px] top-5 w-4 h-4 rounded-full flex items-center justify-center z-10 border-2 ${isLast ? 'bg-primary border-primary-container shadow-[0_0_10px_#d97757]' : 'bg-surface-container-highest border-primary/60'}`}>
                           <div className={`w-1.5 h-1.5 rounded-full ${isLast ? 'bg-white' : 'bg-primary animate-pulse'}`} />
                         </div>
 

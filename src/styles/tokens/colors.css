@@ -1,0 +1,89 @@
+/* ============================================================
+   COLORS — warm dark theme, "Claude-style clay" tuning.
+   Single dark theme. Base palette first, semantic aliases below.
+   Source: MIDI-Link Design System v1
+   ============================================================ */
+:root {
+  /* ---- Surfaces (darkest -> brightest) — warm-neutral charcoal ---- */
+  --surface-container-lowest: #181512;
+  --background:               #1f1b17;
+  --surface:                  #1f1b17;
+  --surface-dim:              #1f1b17;
+  --surface-container-low:    #262119;
+  --surface-container:        #2c2620;
+  --surface-container-high:   #362f27;
+  --surface-container-highest:#413931;
+  --surface-variant:          #413931;
+  --surface-bright:           #4a4138;
+
+  /* ---- Primary (clay — the brand signal color) ---- */
+  --primary:               #f1e4d8; /* warm off-white — headings/text on dark */
+  --primary-container:     #d97757; /* muted coral-clay — CTAs, active, glow */
+  --primary-fixed:         #e9a98e;
+  --primary-fixed-dim:     #c4654a;
+  --surface-tint:          #c2613f; /* deeper clay — gradient partner for CTAs */
+  --inverse-primary:       #7a3a26;
+  --on-primary:            #3a190d;
+  --on-primary-container:  #2e1108;
+  --on-primary-fixed:      #24100a;
+
+  /* ---- Secondary (warm rose-taupe) ---- */
+  --secondary:             #e0b3a3;
+  --secondary-container:   #6e3a2a;
+  --secondary-fixed:       #f2d8cd;
+  --secondary-fixed-dim:   #e0b3a3;
+  --on-secondary:          #461f14;
+  --on-secondary-container:#f2d3c8;
+  --on-secondary-fixed:    #31130b;
+
+  /* ---- Tertiary (sandy taupe — replaces yellow) ---- */
+  --tertiary:              #f3ead9;
+  --tertiary-container:    #d9c19b;
+  --tertiary-fixed:        #e8d4b2;
+  --on-tertiary:           #41331c;
+  --on-tertiary-container: #5f4c2e;
+
+  /* ---- Error (warm clay-red) ---- */
+  --error:                 #f2b8ae;
+  --error-container:       #8c2f23;
+  --on-error:              #5f1409;
+  --on-error-container:    #ffdad4;
+
+  /* ---- Foreground / text — warm off-whites & taupes ---- */
+  --on-surface:            #efe6da;
+  --on-background:         #efe6da;
+  --on-surface-variant:    #cdbcab;
+  --inverse-surface:       #efe6da;
+  --inverse-on-surface:    #312a22;
+
+  /* ---- Outlines ---- */
+  --outline:               #998877;
+  --outline-variant:       #4c4135;
+
+  /* ============================================================
+     SEMANTIC ALIASES — reach for these in product code.
+     ============================================================ */
+  --bg-app:            var(--surface-container-lowest);
+  --bg-base:           var(--background);
+  --surface-card:      var(--surface-container-low);
+  --surface-card-hover:var(--surface-container-high);
+  --surface-raised:    var(--surface-container);
+  --surface-sunken:    var(--surface-container-lowest);
+
+  --text-strong:       var(--on-surface);
+  --text-body:         var(--on-surface-variant);
+  --text-brand:        var(--primary);
+  --text-muted:        #8a7a68;
+
+  --accent:            var(--primary-container);
+  --accent-quiet:      var(--primary-fixed-dim);
+  --accent-terracotta: var(--secondary);
+  --accent-sand:       var(--tertiary-container);
+  --accent-violet:     var(--secondary);
+  --accent-amber:      var(--tertiary-container);
+  --danger:            var(--error);
+
+  --border-hairline:   color-mix(in srgb, var(--outline-variant) 50%, transparent);
+  --border-soft:       color-mix(in srgb, var(--outline-variant) 32%, transparent);
+  --border-accent:     color-mix(in srgb, var(--primary-container) 38%, transparent);
+}

@@ -1,0 +1,46 @@
+/* ============================================================
+   EFFECTS — glows, blur panels, shadows, motion.
+   Source: MIDI-Link Design System v1
+   ============================================================ */
+:root {
+  /* ---- Glows (clay / primary-container = #d97757). Soft and restrained.
+         Names kept as --glow-cyan-* for back-compat; value is warm clay. ---- */
+  --glow-cyan-sm:  0 0 12px rgba(217, 119, 87, 0.30);
+  --glow-cyan-md:  0 0 16px rgba(217, 119, 87, 0.24), inset 0 0 8px rgba(217, 119, 87, 0.08);
+  --glow-cyan-lg:  0 0 20px rgba(217, 119, 87, 0.10);
+  --glow-cta:      0 4px 18px rgba(194, 97, 63, 0.22);
+  --text-glow:     0 0 7px rgba(217, 119, 87, 0.32);
+  /* neutral aliases (prefer these going forward) */
+  --glow-sm:       var(--glow-cyan-sm);
+  --glow-md:       var(--glow-cyan-md);
+  --glow-lg:       var(--glow-cyan-lg);
+
+  /* ---- Elevation shadows ---- */
+  --shadow-card:   0 4px 12px rgba(0, 0, 0, 0.30);
+  --shadow-modal:  0 0 80px rgba(0, 0, 0, 0.80);
+
+  /* ---- Glass / blur panels ---- */
+  --glass-bg:      rgba(44, 38, 32, 0.72);
+  --glass-blur:    blur(24px);
+  --cyber-bg:      rgba(24, 21, 18, 0.92);
+  --cyber-blur:    blur(32px);
+  --scrim:         rgba(24, 21, 18, 0.85);
+
+  /* ---- Motion ---- */
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast:      150ms;
+  --dur-base:      200ms;
+  --dur-slow:      300ms;
+  --hover-lift:    1.02;
+  --hover-pop:     1.05;
+  --press-shrink:  0.95;
+
+  /* ---- Signature gradient (CTA fill) ---- */
+  --grad-cta: linear-gradient(90deg, var(--primary-container), var(--surface-tint));
+}
+
+/* Live-indicator pulse (used by Badge dots, MIDI activity lights) */
+@keyframes midilink-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
