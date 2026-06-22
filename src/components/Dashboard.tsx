@@ -142,13 +142,13 @@ const Dashboard: FC = () => {
     <div data-testid="dashboard" className="bg-surface-container-lowest text-on-surface font-body overflow-hidden h-screen flex flex-col">
 
       {/* ── Top Navigation Bar ── */}
-      <header data-testid="dashboard-header" className="flex justify-between items-center w-full px-6 h-16 bg-[#131315] shadow-[0_0_24px_rgba(0,242,255,0.12)] z-50 flex-shrink-0">
+      <header data-testid="dashboard-header" className="flex justify-between items-center w-full px-6 h-16 bg-surface-container-lowest shadow-[0_0_24px_rgba(217,119,87,0.12)] z-50 flex-shrink-0">
         <div className="flex items-center gap-8">
-          <h1 data-testid="app-title" className="text-xl font-black tracking-tighter text-[#e1fdff]">MIDI-Link</h1>
+          <h1 data-testid="app-title" className="text-xl font-black tracking-tighter text-primary-container text-glow">MIDI-Link</h1>
           <nav className="hidden md:flex items-center gap-6">
-            <span className="font-label tracking-tight text-sm uppercase font-medium text-[#e1fdff] border-b-2 border-[#00f2ff] pb-1">Studio</span>
-            <span className="font-label tracking-tight text-sm uppercase font-medium text-[#b9cacb] px-2 py-1 rounded">Devices</span>
-            <span className="font-label tracking-tight text-sm uppercase font-medium text-[#b9cacb] px-2 py-1 rounded">Logs</span>
+            <span className="font-label tracking-tight text-sm uppercase font-medium text-primary border-b-2 border-primary-container pb-1">Studio</span>
+            <span className="font-label tracking-tight text-sm uppercase font-medium text-on-surface-variant px-2 py-1 rounded">Devices</span>
+            <span className="font-label tracking-tight text-sm uppercase font-medium text-on-surface-variant px-2 py-1 rounded">Logs</span>
           </nav>
         </div>
         <div className="flex items-center gap-4">
@@ -175,16 +175,16 @@ const Dashboard: FC = () => {
       <div data-testid="dashboard-content" className="flex flex-1 overflow-hidden">
 
         {/* ── Side Navigation ── */}
-        <aside data-testid="left-panel" className="hidden md:flex flex-col h-full w-64 bg-[#1b1b1d] py-8 gap-4 border-r border-outline-variant/10 flex-shrink-0">
+        <aside data-testid="left-panel" className="hidden md:flex flex-col h-full w-64 bg-surface-container-low py-8 gap-4 border-r border-outline-variant/10 flex-shrink-0">
           <div className="px-6 mb-4">
-            <h2 className="font-label text-xs font-bold uppercase tracking-widest text-[#e1fdff]">Pro Studio</h2>
+            <h2 className="font-label text-xs font-bold uppercase tracking-widest text-primary">Pro Studio</h2>
             <p className="text-[10px] text-on-surface-variant font-mono">{appVersion}</p>
           </div>
 
           <nav className="flex flex-col gap-1">
             {/* Profile Select — toggles selector */}
             <button
-              className={`flex items-center justify-between gap-3 px-6 py-3 w-full text-left transition-all duration-200 ${showProfileSelector ? 'bg-[#00f2ff]/10 text-[#00f2ff] border-r-4 border-[#00f2ff]' : 'text-[#b9cacb] hover:bg-[#201f21] hover:text-[#e1fdff]'}`}
+              className={`flex items-center justify-between gap-3 px-6 py-3 w-full text-left transition-all duration-200 ${showProfileSelector ? 'bg-primary-container/10 text-primary-container border-r-4 border-primary-container' : 'text-on-surface-variant hover:bg-surface-container hover:text-primary'}`}
               onClick={() => setShowProfileSelector(p => !p)}
             >
               <div className="flex items-center gap-3">
@@ -206,13 +206,13 @@ const Dashboard: FC = () => {
               </div>
             )}
 
-            <div className="flex items-center gap-3 px-6 py-3 bg-[#00f2ff]/10 text-[#00f2ff] border-r-4 border-[#00f2ff] cursor-default">
+            <div className="flex items-center gap-3 px-6 py-3 bg-primary-container/10 text-primary-container border-r-4 border-primary-container cursor-default">
               <span className="material-symbols-outlined text-lg">settings_input_component</span>
               <span className="font-label text-xs font-bold uppercase tracking-widest">MIDI Devices</span>
             </div>
             <button
               data-testid="reconnect-btn"
-              className="flex items-center gap-3 px-6 py-3 text-[#b9cacb] hover:bg-[#201f21] hover:text-[#e1fdff] transition-all duration-200 cursor-pointer w-full text-left"
+              className="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container hover:text-primary transition-all duration-200 cursor-pointer w-full text-left"
               onClick={handleReconnectMidi}
               disabled={midiReconnecting}
             >
@@ -221,7 +221,7 @@ const Dashboard: FC = () => {
                 {midiReconnecting ? 'Reconnecting…' : 'Reconnect'}
               </span>
             </button>
-            <div className="flex items-center gap-3 px-6 py-3 text-[#b9cacb] cursor-default">
+            <div className="flex items-center gap-3 px-6 py-3 text-on-surface-variant cursor-default">
               <span className="material-symbols-outlined text-lg">bolt</span>
               <span className="font-label text-xs font-bold uppercase tracking-widest">Automation</span>
             </div>
@@ -274,7 +274,7 @@ const Dashboard: FC = () => {
                 data-testid="new-mapping-btn"
                 disabled={!activeProfile}
                 title={activeProfile ? undefined : 'Select or create a profile first'}
-                className="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_4px_20px_rgba(0,242,255,0.2)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+                className="bg-primary-container text-on-primary-container px-6 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-glow-cta disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
                 onClick={() => { setEditingMapping(null); setTriggerMidiSelector(true); }}
               >
                 <span className="material-symbols-outlined text-lg">add</span>
